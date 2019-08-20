@@ -1,0 +1,214 @@
+#!/bin/bash
+clear
+
+#Checa se o usuario é root
+LOCAL_USER=`id -u -n`
+
+if [ $LOCAL_USER != "root" ] ; then
+	echo "     Rodar como usuario root"
+	echo "     saindo..."
+	echo ""
+	exit
+fi
+	dir="Diretorio Atual		 : `pwd`"
+	hostname="Hostname			 : `hostname --fqdn`"
+	ip="IP						 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
+  versaoso="Versao S.O.		 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	release="Release			 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	kernel="Kernel				 : `uname -r`"
+	arquitetura="Arquitetura	 : `uname -m`"
+	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
+  echo "+-------------------------------------------------+"
+  echo "|           Utilitario para Zimbra                |"
+  echo "+-------------------------------------------------+"
+  echo "+-------------------------------------------------+"
+  echo "| Escrito por:                                    |"
+  echo "| Thiago Castro - www.hostlp.net                  |"
+  echo "+-------------------------------------------------+"
+  echo
+  echo $dir
+	echo "+-------------------------------------------------+"
+	echo $hostname
+	echo "+-------------------------------------------------+"
+	echo $ip
+	echo "+-------------------------------------------------+"
+	echo $versaoso
+	echo "+-------------------------------------------------+"
+	echo $release
+	echo "+-------------------------------------------------+"
+	echo $codename
+	echo "+-------------------------------------------------+"
+  echo $kernel
+	echo "+-------------------------------------------------+"
+  echo $arquitetura
+	echo "+-------------------------------------------------+"
+	echo $versaozimbra
+	echo "+-------------------------------------------------+"
+	echo
+	echo "Aperte <ENTER> para continuar e começar..."
+	read 
+	sleep 5
+	echo
+	echo "==================EXECUTANDO======================="
+	echo
+
+#Instalando ImapSync
+echo "Deseja instalar ImapSync? - Sim/Nao"
+read CONFIRMA
+case $CONFIRMA in
+s|S|Sim|sim)
+sudo apt-get install makepasswd rcs perl-doc libio-tee-perl git libmail-imapclient-perl libdigest-md5-file-perl libterm-readkey-perl libfile-copy-recursive-perl build-essential make automake libunicode-string-perl libauthen-ntlm-perl libcrypt-ssleay-perl libdigest-hmac-perl libfile-copy-recursive-perl libio-compress-perl libio-socket-inet6-perl libio-socket-ssl-perl libio-tee-perl libmodule-scandeps-perl libnet-ssleay-perl libpar-packer-perl libreadonly-perl libterm-readkey-perl libtest-pod-perl libtest-simple-perl libunicode-string-perl liburi-perl cpanminus libssl-dev -y
+sudo cpanm JSON::WebToken Test::MockObject Unicode::String Data::Uniqid Sys::MemInfo Regexp::Common JSON::WebToken::Crypt::RSA Dist::CheckConflicts Crypt::OpenSSL::RSA File::Tail
+cd /usr/src
+git clone git://github.com/imapsync/imapsync.git
+cd imapsync
+mkdir dist
+sudo make install
+	echo
+	echo
+	echo "Verifique se tudo correu bem com a instalação"
+	echo 
+	echo "Aperte <ENTER> para começar a sincronização..."
+	echo "Aperte <Ctr+C> para Sair..."
+	read 
+	echo
+		;;
+n|N|Nao|nao)
+		;;
+*) echo  "Opção Invalida" ;; esac
+
+############################################################
+clear
+#Parametros 
+SERVERNAME=$HOSTNAME
+SCRIPT_NAME="$SERVERNAME - IMAP TO IMAP"
+MAIL=/opt/zimbra/common/sbin/sendmail;
+echo -n "E-mail para Notificação: "
+read EMAIL
+MAIL_RECIPIENT="$EMAIL"
+LOCK_FILE="/tmp/$SERVERNAME.imapsync.lockfile"
+LOGFILE="ImapSync_log.txt"
+
+#host1 Origem
+echo -n "Servidor de Origiem: "
+read HOST_ORG
+HOST1="$HOST_ORG"
+
+#host2 Destino
+echo -n "Servidor de Destino: "
+read HOST_DST
+HOST2="$HOST_DST"
+
+#domain é onde a conta de e-mail tem "tudo após o @"
+echo -n "Dominio: "
+read DOMAIN_MIG
+DOMAIN="$DOMAIN_MIG"
+
+	echo
+	echo "Aperte <ENTER> para começar a migração..."
+	read 
+
+Principal() {
+clear
+	echo "Escolha qual forma de Migração"
+	echo "Opcoes:"
+    echo "1. Zimbra para Zimbra"
+	echo "2. Imap para Imap"
+    echo 
+	echo "3. Sair"
+	echo
+	echo
+    echo -n "Entre com a Opção desejada => "
+    read Opção
+    echo
+    case $Opção in
+        1) Z2Z ;;
+		2) I2I ;;
+		3) exit ;;
+        *) "Opção desconhecida." ; echo ; Principal ;;
+     esac
+}	
+
+############################################################
+#Começo do Script do Zimbra to Zimbra
+Z2Z() {
+echo -n "Conta Administrador Zimbra de Origem: "
+read ADMIN_ORIG
+ADMIN_ORIGEM="$ADMIN_ORIG"
+echo -n "Senha: "
+read PASSADMIN_ORIG
+PASSWORDADMIN_ORIGEM="$PASSADMIN_ORIG"
+echo
+echo -n "Conta Administrador Zimbra de Destino: "
+read ADMIN_DEST
+ADMIN_DESTINO="$ADMIN_DEST"
+echo -n "Senha: "
+read PASSADMIN_DEST
+PASSWORDADMIN_DESTINO="$PASSADMIN_DEST"
+
+UsrZ="su - zimbra -c"
+#ZMPROV="/opt/zimbra/bin/zmprov"
+$UsrZ 'for USER in $(zmprov -l gaa); do
+imapsync --addheader --nosyncacls --subscribe --syncinternaldates --host1 '$HOST1' --user1 '$USER' --authuser1 '$ADMIN_ORIGEM' --password1 '$PASSWORDADMIN_ORIGEM' --authmech1 PLAIN --host2 '$HOST2' --user2 '$USER' --authuser2 '$ADMIN_DESTINO' --password2 '$PASSWORDADMIN_DESTINO' --authmech2 PLAIN --noauthmd5
+done'
+	EMAIL
+}
+
+############################################################
+#Começo do Script do Imap to Imap
+I2I() {
+
+#if [ ! -e $LOCK_FILE ]; then
+#touch $LOCK_FILE
+
+TIME_NOW=$(date +"%Y-%m-%d %T")
+echo "" >> $LOGFILE
+echo "------------------------------------" >> $LOGFILE
+echo "IMAPSync Iniciado - $TIME_NOW" >> $LOGFILE
+echo "" >> $LOGFILE
+
+{ while IFS=';' read u1 p1; do
+USER_NAME=$u1"@"$DOMAIN
+echo "Sincronizando usuário $USER_NAME"
+TIME_NOW=$(date +"%Y-%m-%d %T")
+echo "Começar a sincronizar usuário $u1"
+echo "Iniciando $u1 $TIME_NOW" >> $LOGFILE
+imapsync --addheader --nosyncacls --syncinternaldates --host1 $HOST1 --user1 "$USER_NAME" --password1 "$p1" --host2 $HOST2 --user2 "$USER_NAME" --password2 "$p1" --noauthmd5
+#Para importar do GMail
+#imapsync --addheader --host1 $HOST1 --ssl1 --user1 "$USER_NAME" --password1 "$p1" --host2 $HOST2 --ssl2 --user2 "$USER_NAME" --password2 "$p1" --noauthmd5 --maxbytespersecond 10000 --automap --exclude "\[Gmail\]$"
+TIME_NOW=$(date +"%Y-%m-%d %T")
+echo "Usuário $USER_NAME feito"
+echo "Finalizado $USER_NAME $TIME_NOW" >> $LOGFILE
+echo "" >> $LOGFILE
+done ; } < Contas-ImapSync
+TIME_NOW=$(date +"%Y-%m-%d %T")
+echo "" >> $LOGFILE
+echo "IMAPSync Finalizado - $TIME_NOW" >> $LOGFILE
+echo "------------------------------------" >> $LOGFILE
+	EMAIL
+}
+
+
+############################################################
+#Começo do Script para notificar por e-mail
+EMAIL() {
+SUBJECT="IMAPSync Finalizado"
+MESSAGE="'$SCRIPT_NAME' Finalizado"
+#echo "IMAPSync Finalizado" | $MAIL -s "[$SCRIPT_NAME] Finalizado" $MAIL_RECIPIENT
+echo "Subject: $SUBJECT
+$MESSAGE" | "$MAIL" "$MAIL_RECIPIENT"
+#rm -f $LOCK_FILE
+
+#else
+TIME_NOW=$(date +"%Y-%m-%d %T")
+SUBJECT2="'$SCRIPT_NAME' !!AVISO!! ainda está em execução"
+MESSAGE2="'$SCRIPT_NAME' em '$TIME_NOW' ainda está em execução"
+#echo "$SCRIPT_NAME em $TIME_NOW ainda está em execução" | $MAIL -s "[$SCRIPT_NAME] !!AVISO!! ainda está em execução" $MAIL_RECIPIENT
+echo "Subject: $SUBJECT2
+$MESSAGE2" | "$MAIL" "$MAIL_RECIPIENT"
+echo "$SCRIPT_NAME em $TIME_NOW ainda está em execução"
+#fi
+	Principal
+} 
+Principal
