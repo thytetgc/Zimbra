@@ -1,8 +1,4 @@
 #!/bin/bash
-# Versao 2.3 em 07/10/2018
-# Versao 3.0 em 26/06/2019
-#######################################################
-
 #+----------------GERANDO LOG-----------------------+OK"
 SCRIPT=`basename $0`
 LOG=`echo /opt/zimbra/$SCRIPT.log | sed s/'.sh'/'.log'/g`
@@ -11,6 +7,7 @@ echo "[`date`] ==== Inicio de rotina..."
 #+----------------GERANDO LOG-----------------------+OK"
 
 clear
+
 #Checa se o usuario é zimbra
 LOCAL_USER=`id -u -n`
 
@@ -21,84 +18,88 @@ if [ $LOCAL_USER != "zimbra" ] ; then
 	exit
 fi
 Principal() {
-   dir="Diretorio Atual		 : `pwd`"
-	 hostname="Hostname			 : `hostname --fqdn`"
-	 ip="IP						       : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
-   versaoso="Versao S.O.	 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
-	 release="Release			   : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
-	 codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
-	 kernel="Kernel			  	 : `uname -r`"
-	 arquitetura="Arquitetura	   : `uname -m`"
-	 versaozimbra="Versao Zimbra : `zmcontrol -v`"
-   echo "+-------------------------------------------------+"
-   echo "|           Utilitario para Zimbra                |"
-   echo "+-------------------------------------------------+"
-   echo "| Exportar / Importar Dados do Zimbra             |"
-   echo "+-------------------------------------------------+"
-   echo "| Escrito por:                                    |"
-   echo "| Thiago Castro - www.hostlp.net                  |"
-   echo "+-------------------------------------------------+"
-   echo
-   echo $dir
-	 echo "+-------------------------------------------------+"
-	 echo $hostname
-	 echo "+-------------------------------------------------+"
-	 echo $ip
-	 echo "+-------------------------------------------------+"
-	 echo $versaoso
-	 echo "+-------------------------------------------------+"
-	 echo $release
-	 echo "+-------------------------------------------------+"
-	 echo $codename
-	 echo "+-------------------------------------------------+"
-     echo $kernel
-	 echo "+-------------------------------------------------+"
-     echo $arquitetura
-	 echo "+-------------------------------------------------+"
-	 echo $versaozimbra
-	 echo "+-------------------------------------------------+"
-	 echo
-   echo
-   echo "Opcoes:"
-   echo "1. Exportar COS e Contas"
-	 echo "2. Exportar Alias e Listas"
-	 echo "3. Exportar Agendas"
-	 echo "4. Exportar Contatos"
-	 echo "5. Exportar Filtros"
-	 echo "6. Exportar Assinaturas"
-	 echo
-	 echo "7. Importar COS e Contas"
-	 echo "8. Importar Alias e Listas"
-	 echo "9. Importar Agendas"
-	 echo "10. Importar Contatos"
-	 echo "11. Importar Filtros"
-	 echo "12. Importar Assinaturas"
-	 echo
-	 echo "13. Adicionar Tarefa Agendada"
-	 echo
-   echo "14. Sair"
-	 echo
-	 echo
-   echo -n "Entre com a opcao desejada => "
-   read opcao
-   echo
-   case $opcao in
-    1) Exportar1 ;;
-		2) Exportar2 ;;
-		3) Exportar3 ;;
-		4) Exportar4 ;;
-		5) Exportar5 ;;
-		6) Exportar6 ;;
-    7) Importar1 ;;
-		8) Importar2 ;;
-		9) Importar3 ;;
-		10) Importar4 ;;
-		11) Importar5 ;;
-		12) Importar6 ;;
-		13) Tarefa ;;
-    14) exit ;;
-     *) "Opcao desconhecida." ; echo ; Principal ;;
-     esac
+   dir="Diretorio Atual			 : `pwd`"
+	 hostname="Hostname		 : `hostname --fqdn`"
+	 ip="IP				 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
+  	 versaoso="Versao S.O.		 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	 release="Release		 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	 codename="Codename		 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	 kernel="Kernel			 : `uname -r`"
+	 arquitetura="Arquitetura	 : `uname -m`"
+	 versaozimbra="Versao Zimbra     : `zmcontrol -v`"
+echo "+-------------------------------------------------+"
+  echo "|           Utilitario para Zimbra                |"
+  echo "+-------------------------------------------------+"
+  echo "+-------------------------------------------------+"
+  echo "| Escrito por:                                    |"
+  echo "| Thiago Castro - www.hostlp.net                  |"
+  echo "+-------------------------------------------------+"
+  echo
+  echo $dir
+  echo "+-------------------------------------------------+"
+  echo $hostname
+  echo "+-------------------------------------------------+"
+  echo $ip
+  echo "+-------------------------------------------------+"
+  echo $versaoso
+  echo "+-------------------------------------------------+"
+  echo $release
+  echo "+-------------------------------------------------+"
+  echo $codename
+  echo "+-------------------------------------------------+"
+  echo $kernel
+  echo "+-------------------------------------------------+"
+  echo $arquitetura
+  echo "+-------------------------------------------------+"
+  echo $versaozimbra
+  echo "+-------------------------------------------------+"
+  echo
+  echo "Aperte <ENTER> para continuar e começar..."
+  read 
+  echo
+  echo "==================EXECUTANDO======================="
+  echo
+  echo
+  echo "Opcoes:"
+  echo "1. Exportar COS e Contas"
+  echo "2. Exportar Alias e Listas"
+  echo "3. Exportar Agendas"
+  echo "4. Exportar Contatos"
+  echo "5. Exportar Filtros"
+  echo "6. Exportar Assinaturas"
+  echo
+  echo "7. Importar COS e Contas"
+  echo "8. Importar Alias e Listas"
+  echo "9. Importar Agendas"
+  echo "10. Importar Contatos"
+  echo "11. Importar Filtros"
+  echo "12. Importar Assinaturas"
+  echo
+  echo "13. Adicionar Tarefa Agendada"
+  echo
+  echo "14. Sair"
+  echo
+  echo
+  echo -n "Entre com a opcao desejada => "
+  read opcao
+  echo
+  case $opcao in
+  1) Exportar1 ;;
+  2) Exportar2 ;;
+  3) Exportar3 ;;
+  4) Exportar4 ;;
+  5) Exportar5 ;;
+  6) Exportar6 ;;
+  7) Importar1 ;;
+  8) Importar2 ;;
+  9) Importar3 ;;
+  10) Importar4 ;;
+  11) Importar5 ;;
+  12) Importar6 ;;
+  13) Tarefa ;;
+  14) exit ;;
+   *) "Opcao desconhecida." ; echo ; Principal ;;
+esac
 }
 
 Exportar1() {
