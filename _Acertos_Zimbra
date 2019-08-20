@@ -1,0 +1,355 @@
+#!/bin/bash
+#+----------------GERANDO LOG-----------------------+OK"
+SCRIPT=`basename $0`
+LOG=`echo /opt/zimbra/$SCRIPT.log | sed s/'.sh'/'.log'/g`
+exec &> >(tee -a "$LOG")
+echo "[`date`] ==== Inicio de rotina..."
+#+----------------GERANDO LOG-----------------------+OK"
+
+clear
+
+#Checa se o usuario é root
+LOCAL_USER=`id -u -n`
+
+if [ $LOCAL_USER != "root" ] ; then
+	echo "     Rodar como usuario root"
+	echo "     saindo..."
+	echo ""
+	exit
+fi
+	dir="Diretorio Atual		 : `pwd`"
+	hostname="Hostname			 : `hostname --fqdn`"
+	ip="IP						 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
+  versaoso="Versao S.O.		 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	release="Release			 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	kernel="Kernel				 : `uname -r`"
+	arquitetura="Arquitetura	 : `uname -m`"
+	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
+  echo "+-------------------------------------------------+"
+  echo "|           Utilitario para Zimbra                |"
+  echo "+-------------------------------------------------+"
+  echo "+-------------------------------------------------+"
+  echo "| Escrito por:                                    |"
+  echo "| Thiago Castro - www.hostlp.net                  |"
+  echo "+-------------------------------------------------+"
+  echo
+  echo $dir
+	echo "+-------------------------------------------------+"
+	echo $hostname
+	echo "+-------------------------------------------------+"
+	echo $ip
+	echo "+-------------------------------------------------+"
+	echo $versaoso
+	echo "+-------------------------------------------------+"
+	echo $release
+	echo "+-------------------------------------------------+"
+	echo $codename
+	echo "+-------------------------------------------------+"
+  echo $kernel
+	echo "+-------------------------------------------------+"
+  echo $arquitetura
+	echo "+-------------------------------------------------+"
+	echo $versaozimbra
+	echo "+-------------------------------------------------+"
+	echo
+	echo "Aperte <ENTER> para continuar e começar..."
+	read 
+	sleep 5
+	echo
+	echo "==================EXECUTANDO======================="
+	echo
+	
+#Variavel
+UsrZ="su - zimbra -c"
+
+#Pega Informações do Servidor
+#echo "Pegando Informações do Servidor"
+#$UsrZ 'zmprov -l gs `zmhostname` | grep -i port'
+#$UsrZ 'zmprov gs `zmhostname` | grep MailMode'
+#$UsrZ 'zmprov gs `zmhostname` | grep -i installed'
+#	 echo "+-------------------------------------------------+OK"
+
+#Define portas de Proxy para 0
+echo "Definindo portas de Proxy para 0"
+$UsrZ 'zmprov -l ms `zmhostname` zimbraImapProxyBindPort 0'
+$UsrZ 'zmprov -l ms `zmhostname` zimbraImapSSLProxyBindPort 0'
+$UsrZ 'zmprov -l ms `zmhostname` zimbraPop3ProxyBindPort 0'
+$UsrZ 'zmprov -l ms `zmhostname` zimbraPop3SSLProxyBindPort 0'
+$UsrZ 'zmprov -l ms `zmhostname` zimbraMailProxyPort 0'
+$UsrZ 'zmprov -l ms `zmhostname` zimbraMailSSLProxyPort 0'
+$UsrZ 'zmprov -l ms `zmhostname` zimbraAdminProxyPort 0'
+	 echo "+-------------------------------------------------+OK"
+
+#Define as portas nao "Proxy" para as portas padrão desejada
+echo "Definindo portas não Proxy para o padrão"
+$UsrZ 'zmprov -l ms `zmhostname` zimbraImapBindPort 143'
+$UsrZ 'zmprov -l ms `zmhostname` zimbraImapSSLBindPort 993'
+$UsrZ 'zmprov -l ms `zmhostname` zimbraPop3BindPort 110'
+$UsrZ 'zmprov -l ms `zmhostname` zimbraPop3SSLBindPort 995'
+$UsrZ 'zmprov -l ms `zmhostname` zimbraMailPort 80'
+$UsrZ 'zmprov -l ms `zmhostname` zimbraMailSSLPort 443'
+$UsrZ 'zmprov -l ms `zmhostname` zimbraAdminPort 7071'
+$UsrZ 'zmprov -l ms `zmhostname` zimbraMailMode redirect'
+$UsrZ 'zmprov -l ms `zmhostname` zimbraReverseProxyMailMode both'
+	 echo "+-------------------------------------------------+OK"
+
+#Mudar porta de HTTP para HTTPS
+echo "Definindo redirecionamento HTTP para HTTPS"
+$UsrZ 'zmtlsctl redirect' 1&> /dev/null
+	 echo "+-------------------------------------------------+OK"
+
+#Disabilita Memcached, Imapproxy e Proxy
+echo "Disabilitando Memcached, Imapproxy e Proxy"
+$UsrZ 'zmprov -l ms `zmhostname` -zimbraServiceEnabled memcached'
+$UsrZ 'zmprov -l ms `zmhostname` -zimbraServiceEnabled imapproxy'
+$UsrZ 'zmprov -l ms `zmhostname` -zimbraServiceEnabled proxy'
+	 echo "+-------------------------------------------------+OK"
+
+#Disabilitando Amavis, AntiSpam e AntiVirus
+echo "Disabilitando Amavis, AntiSpam e AntiVirus"
+$UsrZ 'zmprov -l ms `zmhostname` -zimbraServiceEnabled amavis'
+$UsrZ 'zmprov -l ms `zmhostname` -zimbraServiceEnabled antispam'
+$UsrZ 'zmprov -l ms `zmhostname` -zimbraServiceEnabled antivirus'
+	 echo "+-------------------------------------------------+OK"
+#https://wiki.zimbra.com/wiki/Zimbra_Proxy_Manual:Installing_,_Configuring,_Disabling_the_Zimbra_Proxy
+
+#Acertando SSH port e SSL
+echo "Acertando SSH port e chaves SSL"
+SSHP1="`cat /etc/ssh/sshd_config |grep Port | cut -d' ' -f2`"
+echo "Porta SSH Atual -> $SSHP1"
+echo -n "Porta SSH Atual: "
+read SSHP2
+     echo "+-------------------------------------------------+OK"
+$UsrZ 'zmprov ms `zmhostname` zimbraRemoteManagementPort '$SSHP2''
+$UsrZ 'zmprov mcf zimbraRemoteManagementPort '$SSHP2''
+$UsrZ 'cd /opt/zimbra/bin/'
+$UsrZ '/opt/zimbra/bin/zmsshkeygen'
+$UsrZ '/opt/zimbra/bin/zmupdateauthkeys'
+     echo "+-------------------------------------------------+OK"
+#https://wiki.zimbra.com/index.php?title=Mail_Queue_Monitoring
+
+#Acertando o LMTA
+echo "Acertando o LMTA"
+$UsrZ 'zmprov -l ms `zmhostname` zimbraMtaLmtpHostLookup native'
+$UsrZ 'zmprov -l mcf zimbraMtaLmtpHostLookup native'
+	 echo "+-------------------------------------------------+OK"
+
+#Configurando resposta rapida quando der Over Quota
+echo "Configurando resposta rapida quando der Over Quota"
+$UsrZ 'zmprov mcf zimbraLmtpPermanentFailureWhenOverQuota TRUE'
+	 echo "+-------------------------------------------------+OK"
+
+#Configurando tempo de vida em fila
+echo "Configurando tempo de vida em fila"
+$UsrZ 'zmprov mcf zimbraMtaBounceQueueLifetime 1d'
+$UsrZ 'zmprov mcf zimbraMtaMaximalQueueLifetime 1d'
+$UsrZ 'zmprov mcf zimbraMtaSmtpdSaslAuthenticatedHeader yes'
+$UsrZ 'zmprov mcf zimbraMtaQueueRunDelay 300s'
+$UsrZ 'zmprov mcf zimbraMtaMaximalBackoffTime 4000s'
+$UsrZ 'zmprov mcf zimbraMtaMinimalBackoffTime 300s'
+	 echo "+-------------------------------------------------+OK"
+#http://www.bachus.us/blog/2014/07/02/securing-zimbra-smtp/
+
+#Acertando os Atalhos
+echo "Acertando os Atalhos"
+rm -rf /sbin/postsuper /sbin/mailq /sbin/postqueue
+ln -s /opt/zimbra/common/sbin/postsuper /sbin/postsuper
+ln -s /opt/zimbra/common/sbin/mailq /sbin/mailq
+ln -s /opt/zimbra/common/sbin/postqueue /sbin/postqueue
+echo postsuper -d ALL > /sbin/del-mail ; chmod +x /sbin/del-mail
+echo tail -f /var/log/mail.log > /sbin/maillog ; chmod +x /sbin/maillog
+	 echo "+-------------------------------------------------+OK"
+
+#Aumentando o limite do tamanho de anexos (10485760 = 10mb,20971520 = 20mb,31457280 = 30mb,41943040 = 40mb,52428800 = 50mb)
+echo "Aumentando o limite do tamanhoa de anexos -> 10mb = 10485760 / 20mb = 20971520 / 30mb = 31457280 / 40mb = 41943040 / 50mb = 52428800"
+echo -n "Limitar anexos em...: "
+read LANX
+$UsrZ 'zmprov modifyConfig zimbraMailContentMaxSize '$LANX''
+$UsrZ 'zmprov modifyConfig zimbraImapMaxRequestSize '$LANX''
+$UsrZ 'zmprov modifyConfig zimbraMtaMaxMessageSize '$LANX''
+	 echo "+-------------------------------------------------+OK"
+
+#Acertando os banners
+echo "Acertando os banners"
+$UsrZ 'zmlocalconfig -e postfix_smtpd_banner="`hostname --fqdn`"'
+$UsrZ 'zmprov -l mcf zimbraMtaMyHostname `hostname --fqdn`'
+	 echo "+-------------------------------------------------+OK"
+
+#Alterando logos de todos os dominios
+echo "Alterando logos de todos os dominios"
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraSkinLogoURL http://site.hostlp.com.br; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraSkinLogoLoginBanner http://site.hostlp.com.br/imagens/zimbra/Logotipo_Novo_130x58.png; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraSkinLogoAppBanner http://site.hostlp.com.br/imagens/zimbra/Logotipo_Novo_80x36.png; done'
+	 echo "+-------------------------------------------------+OK"
+
+#Criando regras de proteção RBL
+echo "Criando regras de proteção RBL"
+$UsrZ 'zmprov mcf +zimbraMtaRestriction reject_unknown_sender_domain'
+$UsrZ 'zmprov mcf +zimbraMtaRestriction "reject_rbl_client dnsbl.spfbl.net"'
+$UsrZ 'zmprov mcf +zimbraMtaRestriction "reject_rbl_client dnsbl.sorbs.net"'
+$UsrZ 'zmprov mcf +zimbraMtaRestriction "reject_rbl_client b.barracudacentral.org"'
+$UsrZ 'zmprov mcf +zimbraMtaRestriction "reject_rbl_client psbl.surriel.com"'
+$UsrZ 'zmprov mcf +zimbraMtaRestriction "reject_rbl_client cbl.abuseat.org"'
+$UsrZ 'zmprov mcf zimbraMtaPostscreenDnsblSites 'b.barracudacentral.org=127.0.0.2*7' zimbraMtaPostscreenDnsblSites 'dnsbl.sorbs.net=127.0.0.10*8' zimbraMtaPostscreenDnsblSites 'dnsbl.sorbs.net=127.0.0.5*6' zimbraMtaPostscreenDnsblSites 'dnsbl.sorbs.net=127.0.0.7*3' zimbraMtaPostscreenDnsblSites 'dnsbl.sorbs.net=127.0.0.8*2' zimbraMtaPostscreenDnsblSites 'dnsbl.sorbs.net=127.0.0.6*2' zimbraMtaPostscreenDnsblSites 'dnsbl.sorbs.net=127.0.0.9*2''
+$UsrZ 'zmprov mcf zimbraMtaPostscreenDnsblAction enforce'
+$UsrZ 'zmprov mcf zimbraMtaPostscreenGreetAction enforce'
+$UsrZ 'zmprov mcf zimbraMtaPostscreenNonSmtpCommandAction drop'
+$UsrZ 'zmprov mcf zimbraMtaPostscreenPipeliningAction enforce'
+	 echo "+-------------------------------------------------+OK"
+#https://www.missioncriticalemail.com/2019/03/21/zimbra-anti-spam-best-practices-2019/
+
+#Ativando AntiSpam
+echo "Ativando AntiSpam - Sim/Nao"
+read CONFIRMA
+case $CONFIRMA in
+s|S|Sim|sim)
+$UsrZ 'zmprov -l ms `zmhostname` +zimbraServiceEnabled antispam'
+		;;
+n|N|Nao|nao)
+		;;
+*) echo  "Opcao Invalida" ;; esac
+$UsrZ 'zmlocalconfig -e antispam_enable_rule_updates=true'
+$UsrZ 'zmlocalconfig -e antispam_enable_restarts=true'
+$UsrZ 'zmlocalconfig -e antispam_enable_rule_compilation=true'
+$UsrZ 'zmprov mcf zimbraSpamKillPercent 90'
+$UsrZ 'zmprov mcf zimbraSpamTagPercent 40'
+$UsrZ 'zmprov mcf zimbraSpamSubjectTag "[*]"'
+$UsrZ 'echo score DOS_OUTLOOK_TO_MX 0 > ~/data/spamassassin/localrules/sauser.cf'
+$UsrZ 'echo score TO_EQ_FM_DIRECT_MX 0 >> ~/data/spamassassin/localrules/sauser.cf'
+$UsrZ 'echo score RCVD_IN_PBL 0.1 >> ~/data/spamassassin/localrules/sauser.cf'
+$UsrZ 'echo score RDNS_NONE 0.1 >> ~/data/spamassassin/localrules/sauser.cf'
+$UsrZ 'echo score FREEMAIL_FORGED_REPLYTO 4.0 >> ~/data/spamassassin/localrules/sauser.cf'
+$UsrZ 'echo use_bayes 0 >> ~/data/spamassassin/localrules/sauser.cf'
+echo "Adicionar IP Publico do servidor a lista internal_networks do AntiSpam ex: `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`/32"
+echo -n "IP Publico do Servidor: "
+read IP
+$UsrZ 'echo internal_networks '$IP' >> ~/data/spamassassin/localrules/sauser.cf'
+$UsrZ '/opt/zimbra/libexec/zmspamextract -s -d -o /tmp/spam/' 1&> /dev/null
+$UsrZ '/opt/zimbra/libexec/zmspamextract -n -d -o /tmp/notspam/' 1&> /dev/null
+cd /opt/zimbra/data/spamassassin/localrules
+wget -N https://www.pccc.com/downloads/SpamAssassin/contrib/KAM.cf -O sakam.cf 1&> /dev/null
+echo "00 00 * * *"  zimbra  wget -N https://www.pccc.com/downloads/SpamAssassin/contrib/KAM.cf -O /opt/zimbra/data/spamassassin/localrules/sakam.cf > /etc/cron.d/sakam
+	 echo "+-------------------------------------------------+OK"
+#https://wiki.zimbra.com/wiki/Anti-spam_Strategies
+
+#Ativando AntiVirus
+echo "Ativando AntiVirus - Sim/Nao"
+read CONFIRMA
+case $CONFIRMA in
+s|S|Sim|sim)
+$UsrZ 'zmprov -l ms `zmhostname` +zimbraServiceEnabled amavis'
+$UsrZ 'zmprov -l ms `zmhostname` +zimbraServiceEnabled antivirus'
+$UsrZ 'zmprov mcf zimbraVirusDefinitionsUpdateFrequency 2h'
+$UsrZ 'zmprov mcf zimbraAmavisLogLevel 2'
+    echo "+-------------------------------------------------+OK"
+        ;;
+n|N|Nao|nao)
+       ;;
+*) echo  "Opcao Invalida" ;; esac
+#https://www.missioncriticalemail.com/2019/03/21/zimbra-anti-spam-best-practices-2019/
+
+#Adicionar IP Publibco do servidor a lista HttpThrottleSafeIPs
+echo "Adicionar IP Publico do servidor a lista HttpThrottleSafeIPs ex: `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`/32"
+echo -n "IP Publico do Servidor: "
+read IP
+$UsrZ 'zmprov mcf zimbraHttpThrottleSafeIPs 127.0.0.1/32 zimbraHttpThrottleSafeIPs '$IP''
+$UsrZ 'zmprov ms `zmhostname` zimbraHttpThrottleSafeIPs 127.0.0.1/32 zimbraHttpThrottleSafeIPs '$IP''
+    echo "+-------------------------------------------------+OK"
+
+#Desativando alguns ZimLets
+echo "Desativando alguns ZimLets"
+$UsrZ 'zmzimletctl disable com_zextras_drive_open' 1&> /dev/null
+$UsrZ 'zmzimletctl disable com_zextras_chat_open' 1&> /dev/null
+$UsrZ 'zmzimletctl disable com_zextras_mailarchive' 1&> /dev/null
+$UsrZ 'zmzimletctl disable com_zextras_webex' 1&> /dev/null
+$UsrZ 'zmzimletctl disable com_zextras_ymemoticons' 1&> /dev/null
+	 echo "+-------------------------------------------------+OK"
+
+#Desativando Texto não Criptografado
+echo "Desativando Texto não Criptografado"
+$UsrZ 'zmprov ms `zmhostname` zimbraMailClearTextPasswordEnabled TRUE'
+$UsrZ 'zmprov ms `zmhostname` zimbraImapCleartextLoginEnabled TRUE'
+$UsrZ 'zmprov ms `zmhostname` zimbraPop3CleartextLoginEnabled TRUE'
+$UsrZ 'zmprov ms `zmhostname` zimbraMtaTlsAuthOnly TRUE'
+$UsrZ 'zmprov ms `zmhostname` zimbraMtaTlsSecurityLevel may'
+$UsrZ 'zmprov mcf zimbraMailClearTextPasswordEnabled FALSE'
+$UsrZ 'zmprov mcf zimbraImapCleartextLoginEnabled FALSE'
+$UsrZ 'zmprov mcf zimbraImapCleartextLoginEnabled FALSE'
+$UsrZ 'zmprov mcf zimbraPop3CleartextLoginEnabled FALSE'
+$UsrZ 'zmprov mcf zimbraMtaTlsAuthOnly TRUE'
+$UsrZ 'zmprov mcf zimbraMtaTlsSecurityLevel may'
+$UsrZ 'zmlocalconfig -e postfix_smtp_tls_security_level=may'
+	 echo "+-------------------------------------------------+OK"
+#https://wiki.zimbra.com/wiki/SecureConfiguration
+
+#Acertando problema no webmail com anexos
+#echo "Acertando problema no webmail com anexos"
+#$UsrZ 'zmlocalconfig -e zimbra_use_owasp_html_sanitizer=FALSE'
+#	 echo "+-------------------------------------------------+OK"
+	 
+#Aplicando politica de DOSFilter
+echo "Aplicando politica de DOSFilter"
+$UsrZ 'zmprov mcf zimbraHttpDosFilterDelayMillis 20'
+$UsrZ 'zmprov mcf zimbraHttpDosFilterMaxRequestsPerSec 100'
+$UsrZ 'zmprov mcf zimbraInvalidLoginFilterDelayInMinBetwnReqBeforeReinstating 30'
+$UsrZ 'zmprov mcf zimbraInvalidLoginFilterMaxFailedLogin 10'
+$UsrZ 'zmprov mcf zimbraInvalidLoginFilterReinstateIpTaskIntervalInMin 5'
+	 echo "+-------------------------------------------------+OK"
+
+#Reinicia serviços
+#echo "Reinicia serviços"
+#$UsrZ 'zmmemcachedctl stop'
+#$UsrZ 'zmproxyctl stop'
+#$UsrZ 'zmamavisdctl stop'
+#$UsrZ 'zmantispamctl stop'
+#$UsrZ 'zmantivirusctl stop'
+#$UsrZ 'zmmailboxdctl stop'
+#$UsrZ 'zmmemcachedctl start'
+#$UsrZ 'zmproxyctl start'
+#$UsrZ 'zmamavisdctl start'
+#$UsrZ 'zmantispamctl start'
+#$UsrZ 'zmantivirusctl start'
+#$UsrZ 'zmmailboxdctl start'
+
+#Arrumar permissões de pastas
+echo "Arrumar permissões de pastas - Sim/Nao"
+read CONFIRMA
+case $CONFIRMA in
+s|S|Sim|sim)
+$UsrZ '/opt/zimbra/libexec/zmfixperms -extended'
+		;;
+n|N|Nao|nao)
+       ;;
+*) echo  "Opcao Invalida" ;; esac
+	 echo "+-------------------------------------------------+OK"
+
+#Reinicia Zimbra
+	echo
+	echo
+	echo "Aperte <ENTER> para reiniciar o Zimbra..."
+	read 
+	sleep 5
+	echo
+	echo "===================PARANDO========================"
+	echo
+	echo "Parando o Zimbra"
+$UsrZ 'zmcontrol stop'
+	echo "+-------------------------------------------------+OK"
+	echo
+	echo
+	echo "Aperte <ENTER> para Iniciar o Zimbra..."
+	read 
+	sleep 5
+	echo
+	echo "==================INICIANDO======================="
+	echo
+	echo "Iniciando o Zimbra"
+$UsrZ 'zmcontrol start'
+	echo "+-------------------------------------------------+OK"
+	echo
+	echo "Status do Zimbra"
+$UsrZ 'zmcontrol status'
+	echo "+-------------------------------------------------+OK"
+
+echo "[`date`] ==== Fim de rotina..."
