@@ -1,0 +1,227 @@
+#!/bin/bash
+#+----------------GERANDO LOG-----------------------+OK"
+SCRIPT=`basename $0`
+LOG=`echo /opt/zimbra/$SCRIPT.log | sed s/'.sh'/'.log'/g`
+exec &> >(tee -a "$LOG")
+echo "[`date`] ==== Inicio de rotina..."
+#+----------------GERANDO LOG-----------------------+OK"
+
+clear
+#Checa se o usuario é Zimbra
+LOCAL_USER=`id -u -n`
+
+if [ $LOCAL_USER != "zimbra" ] ; then
+	echo "     Rodar como usuario Zimbra"
+	echo "     saindo..."
+	echo ""
+	exit
+fi
+
+	dir="Diretorio Atual		 : `pwd`"
+	hostname="Hostname			 : `hostname --fqdn`"
+	ip="IP						 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
+  versaoso="Versao S.O.		 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	release="Release			 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	kernel="Kernel				 : `uname -r`"
+	arquitetura="Arquitetura	 : `uname -m`"
+	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
+  echo "+-------------------------------------------------+"
+  echo "|           Utilitario para Zimbra                |"
+  echo "+-------------------------------------------------+"
+  echo "+-------------------------------------------------+"
+  echo "| Escrito por:                                    |"
+  echo "| Thiago Castro - www.hostlp.net                  |"
+  echo "+-------------------------------------------------+"
+  echo
+  echo $dir
+	echo "+-------------------------------------------------+"
+	echo $hostname
+	echo "+-------------------------------------------------+"
+	echo $ip
+	echo "+-------------------------------------------------+"
+	echo $versaoso
+	echo "+-------------------------------------------------+"
+	echo $release
+	echo "+-------------------------------------------------+"
+	echo $codename
+	echo "+-------------------------------------------------+"
+  echo $kernel
+	echo "+-------------------------------------------------+"
+  echo $arquitetura
+	echo "+-------------------------------------------------+"
+	echo $versaozimbra
+	echo "+-------------------------------------------------+"
+	echo
+	echo "Aperte <ENTER> para continuar e começar..."
+	read 
+	sleep 5
+	echo
+	echo "==================EXECUTANDO======================="
+	echo
+
+#Obter interface desejada e IP do Zimbra para conexão
+#IFACE="eth0"
+IP=`/sbin/ifconfig $IFACE | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p'`
+
+# Destino dos Arquivos
+# -------------------------------------------------------
+#echo -n "Onde salvar os backups..."
+#read DESTB
+#echo
+#DEST="$DESTB/Zimbra/`hostname --fqdn`"
+DEST="/mnt/st2/Zimbra/`hostname --fqdn`"
+DESTTEMP="/tmp"
+ZMPROV="/opt/zimbra/bin/zmprov"
+ZMMAILBOX="/opt/zimbra/bin/zmmailbox"
+
+# Definindo Variaveis de ambiente do Zimbra
+# -------------------------------------------------------
+source ~/bin/zmshutil
+zmsetvars
+
+# Diretorios COS e Contas
+# -------------------------------------------------------
+###############################################
+echo "Criando diretórios COS e Contas"
+echo
+mkdir $DEST/COS $DEST/Contas -p
+echo "[OK]"
+
+# Exportando Classes de Serviços
+# -------------------------------------------------------
+###############################################
+echo "Exportando COS"
+echo
+ldapsearch -x -H ldap://$IP -D uid=zimbra,cn=admins,cn=zimbra -w $zimbra_ldap_password -b '' -LLL "(objectclass=zimbraCOS)" > $DEST/COS/cos.ldiff
+	 echo "+-------------------------------------------------+OK"
+
+# Exportando Contas
+# -------------------------------------------------------
+###############################################
+echo "Exportando Contas"
+echo
+ldapsearch -x -H ldap://$IP -D uid=zimbra,cn=admins,cn=zimbra -w $zimbra_ldap_password -b '' -LLL "(objectclass=zimbraAccount)" > $DEST/Contas/contas.ldiff
+	 echo "+-------------------------------------------------+OK"
+
+# Diretorios Alias, Listas
+# -------------------------------------------------------
+###############################################
+echo "Criando diretórios Alias, Listas"
+echo
+mkdir $DEST/Alias $DEST/Alias/alias $DEST/Listas -p
+echo "[OK]"
+
+# Exportando Alias
+# -------------------------------------------------------
+###############################################
+echo "Exportando Alias"
+echo
+ldapsearch -x -H ldap://$IP -D uid=zimbra,cn=admins,cn=zimbra -w $zimbra_ldap_password  -b '' -LLL "(objectclass=zimbraAlias)" uid | grep ^uid | awk '{print $2}' > $DEST/Alias/alias.ldiff
+
+for MAIL in $(cat $DEST/Alias/alias.ldiff);
+do
+  ldapsearch -x -H ldap://$IP -D uid=zimbra,cn=admins,cn=zimbra -w $zimbra_ldap_password -b '' -LLL "(&(uid=$MAIL)(objectclass=zimbraAlias))" > $DEST/Alias/alias/$MAIL.ldiff
+cat $DEST/Alias/alias/*.ldiff > $DEST/Alias/apelidos.ldiff
+done
+rm -rf $DEST/Alias/alias
+	 echo "+-------------------------------------------------+OK"
+
+# Exportando Listas de Distribuição
+# -------------------------------------------------------
+###############################################
+echo "Exportando Listas de Distribuição"
+echo
+ldapsearch -x -H ldap://$IP -D uid=zimbra,cn=admins,cn=zimbra -w $zimbra_ldap_password -b '' -LLL "(objectclass=zimbraDistributionList)" > $DEST/Listas/listas.ldiff
+	 echo "+-------------------------------------------------+OK"
+
+# Diretorios Agendas
+# -------------------------------------------------------
+###############################################
+echo "Criando diretório Agendas"
+echo
+mkdir $DEST/Agendas -p
+echo "[OK]"
+
+# Exportando Agendas
+# -------------------------------------------------------
+###############################################
+echo "Exportando Agendas"
+echo
+cd $DEST/Agendas/
+for MAIL in $($ZMPROV -l gaa | sort); do
+        $ZMMAILBOX  -z -m $MAIL getRestURL "/calendar?fmt=ics" > $DEST/Agendas/$MAIL.ics
+done
+	 echo "+-------------------------------------------------+OK"
+
+# Diretorios Contatos
+# -------------------------------------------------------
+###############################################
+echo "Criando diretório Contatos"
+echo
+mkdir $DEST/Contatos -p
+echo "[OK]"
+
+# Exportando Contatos
+# -------------------------------------------------------
+###############################################
+echo "Exportando Contatos"
+echo
+cd $DEST/Contatos/
+for MAIL in $($ZMPROV -l gaa | sort); do
+        $ZMMAILBOX  -z -m $MAIL getRestURL "/contacts?fmt=csv" > $DEST/Contatos/$MAIL.csv
+done
+	 echo "+-------------------------------------------------+OK"
+
+# Diretorios Filtros
+# -------------------------------------------------------
+###############################################
+echo "Criando diretório Filtros"
+echo
+mkdir $DEST/Filtros -p
+echo "[OK]"
+
+# Exportando Filtros
+# -------------------------------------------------------
+###############################################
+echo "Exportando Filtros"
+echo
+USERS=`zmprov -l gaa | sort`;
+for ACCOUNT in $USERS; do
+NAME=`echo $ACCOUNT`;
+done
+filter=`zmprov ga $NAME zimbraMailSieveScript > $DESTTEMP/$NAME`
+sed -i -e "1d" $DESTTEMP/$NAME
+sed 's/zimbraMailSieveScript: //g' $DESTTEMP/$NAME > $DEST/Filtros/$NAME
+rm $DESTTEMP/$NAME
+	 echo "+-------------------------------------------------+OK"
+
+# Diretorios Assinaturas
+# -------------------------------------------------------
+###############################################
+echo "Criando diretório Assinaturas"
+echo
+mkdir $DEST/Assinaturas -p
+echo "[OK]"
+
+# Exportando Assinaturas
+# -------------------------------------------------------
+###############################################
+echo "Exportando Assinaturas"
+echo
+USERS=`zmprov -l gaa | sort`;
+for ACCOUNT in $USERS; do
+NAME=`echo $ACCOUNT`;
+done
+filter=`zmprov ga $NAME zimbraPrefMailSignature > $DESTTEMP/$NAME`
+sed -i -e "1d" $DESTTEMP/$NAME
+sed 's/zimbraPrefMailSignature: //g' $DESTTEMP/$NAME > $DEST/Assinaturas/$NAME
+rm $DESTTEMP/$NAME
+	 echo "+-------------------------------------------------+OK"
+
+###############################################
+echo "Export para $DEST concluido"
+echo
+###############################################
+
+echo "[`date`] ==== Fim de rotina..."
