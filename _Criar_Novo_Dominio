@@ -1,0 +1,157 @@
+#!/bin/bash
+#+----------------GERANDO LOG-----------------------+OK"
+SCRIPT=`basename $0`
+LOG=`echo /opt/zimbra/$SCRIPT.log | sed s/'.sh'/'.log'/g`
+exec &> >(tee -a "$LOG")
+echo "[`date`] ==== Inicio de rotina..."
+#+----------------GERANDO LOG-----------------------+OK"
+
+clear
+
+#Checa se o usuario é root
+LOCAL_USER=`id -u -n`
+
+if [ $LOCAL_USER != "root" ] ; then
+	echo "     Rodar como usuario root"
+	echo "     saindo..."
+	echo ""
+	exit
+fi
+	dir="Diretorio Atual		 : `pwd`"
+	hostname="Hostname			 : `hostname --fqdn`"
+	ip="IP					      	 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
+   versaoso="Versao S.O.	 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	release="Release			   : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	kernel="Kernel				   : `uname -r`"
+	arquitetura="Arquitetura	  : `uname -m`"
+	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
+  echo "+-------------------------------------------------+"
+  echo "|           Utilitario para Zimbra                |"
+  echo "+-------------------------------------------------+"
+  echo "+-------------------------------------------------+"
+  echo "| Escrito por:                                    |"
+  echo "| Thiago Castro - www.hostlp.net                  |"
+  echo "+-------------------------------------------------+"
+  echo
+  echo $dir
+	echo "+-------------------------------------------------+"
+	echo $hostname
+	echo "+-------------------------------------------------+"
+	echo $ip
+	echo "+-------------------------------------------------+"
+	echo $versaoso
+	echo "+-------------------------------------------------+"
+	echo $release
+	echo "+-------------------------------------------------+"
+	echo $codename
+	echo "+-------------------------------------------------+"
+  echo $kernel
+	echo "+-------------------------------------------------+"
+  echo $arquitetura
+	echo "+-------------------------------------------------+"
+	echo $versaozimbra
+	echo "+-------------------------------------------------+"
+	echo
+	echo "Aperte <ENTER> para continuar e começar..."
+	read 
+	echo
+	echo "==================EXECUTANDO======================="
+	echo
+
+#Variavel
+UsrZ="su - zimbra -c"
+
+#Copiar COS Default para o novo
+echo "Copiando COS Default para o novo"
+echo "+-------------------------------------------------+"
+echo -n "Digite o nome do novo COS: "
+read COSNOVO
+NEWCOS="$COSNOVO"
+$UsrZ 'zmprov cpc default "'$NEWCOS'"'
+	 echo "+-------------------------------------------------+OK"
+	 
+echo -n "Digite a descrição do novo COS: "
+read DESCRICAO
+$UsrZ 'zmprov mc "'$NEWCOS'" description '$DESCRICAO''
+	 echo "+-------------------------------------------------+OK"
+	 
+echo
+echo
+#Criar novo Dominio
+echo "Criando novo Dominio"
+echo "+-------------------------------------------------+"
+echo -n "Digite o nome completo do Dominio: "
+read DOMAINNOVO
+NEWDOMAIN="$DOMAINNOVO"
+$UsrZ 'zmprov cd '$NEWDOMAIN''
+	 echo "+-------------------------------------------------+OK"
+	 
+echo "Adicioando Dominio novo para o COS criado"
+NCOS="`su - zimbra -c "zmprov gc default zimbraId|cut -d' ' -f2|egrep -v 'name|$^'"`"
+$UsrZ 'zmprov md '$NEWDOMAIN' zimbraDomainDefaultCOSId '$NCOS''
+#$UsrZ 'for NCOS in $(zmprov gc "'$NEWCOS'" zimbraId | cut -d' ' -f2 | grep -v name); do zmprov md '$NEWDOMAIN' zimbraDomainDefaultCOSId $NCOS; done'
+#$UsrZ 'for NCOS in $(zmprov gc '$NEWCOS' zimbraId|awk '{print $2}'|egrep -v "name|$^"); do zmprov md "'$NEWDOMAIN'" zimbraDomainDefaultCOSId $NCOS; done'
+	 echo "+-------------------------------------------------+OK"
+	 
+echo "Alterando Aviso de Quota para 90%"
+$UsrZ 'zmprov md '$NEWDOMAIN' zimbraDomainAggregateQuotaWarnPercent 90'
+	 echo "+-------------------------------------------------+OK"
+	 
+echo "Acertando Fuso Horario -0300"
+$UsrZ 'zmprov md '$NEWDOMAIN' zimbraPrefTimeZoneId America/Sao_Paulo'
+	 echo "+-------------------------------------------------+OK"
+	 
+echo "Acertando Protocolo"
+$UsrZ 'zmprov md '$NEWDOMAIN' zimbraPublicServiceProtocol http'
+	 echo "+-------------------------------------------------+OK"
+	 
+echo "Alterar Quota do dominio em bytes (1073741824 = 1GB / 2147483648 = 2GB / 3221225472 = 3GB / 4294967296 = 4GB / 5368709120 = 5GB)"
+echo -n "Digite em bytes a quota do novo Dominio: "
+read DOMANINQUOTA
+$UsrZ 'zmprov md '$NEWDOMAIN' zimbraMailDomainQuota '$DOMANINQUOTA''
+	 echo "+-------------------------------------------------+OK"
+	 
+echo "Enviar e-mail de aviso de Quota para: "
+echo -n "Digite o e-mail Completo: "
+read EMAILQUOTA
+$UsrZ 'zmprov md '$NEWDOMAIN' zimbraDomainAggregateQuotaWarnEmailRecipient '$EMAILQUOTA''
+	 echo "+-------------------------------------------------+OK"
+	 
+echo "Politica de Quota agregada ao Dominio: "
+$UsrZ 'zmprov md '$NEWDOMAIN' zimbraDomainAggregateQuotaPolicy BLOCKSENDRECEIVE'
+	 echo "+-------------------------------------------------+OK"
+	 
+echo "Alterando nome do Compartilhamento do Porta Arquivos"
+echo -n "Digite o nome do Compartilhamento do Porta Arquivos: "
+read PORTAARQ
+$UsrZ 'zmprov md '$NEWDOMAIN' zimbraBasicAuthRealm "'$PORTAARQ'"'
+	 echo "+-------------------------------------------------+OK"
+	 
+echo
+echo
+#Ajustes Finos
+echo "Ajustes finos"
+echo "+-------------------------------------------------+"
+echo "Alterando Logo"
+$UsrZ 'zmprov md '$NEWDOMAIN' zimbraSkinLogoURL http://site.hostlp.com.br'
+$UsrZ 'zmprov md '$NEWDOMAIN' zimbraSkinLogoLoginBanner http://site.hostlp.com.br/imagens/zimbra/Logotipo_Novo_130x58.png'
+$UsrZ 'zmprov md '$NEWDOMAIN' zimbraSkinLogoAppBanner http://site.hostlp.com.br/imagens/zimbra/Logotipo_Novo_80x36.png'
+	 echo "+-------------------------------------------------+OK"
+	 
+echo "Limitar usuarios para o Dominio"
+echo -n "Quantas contas? "
+read QTSCONTAS
+$UsrZ 'zmprov md '$NEWDOMAIN' zimbraDomainMaxAccounts '$QTSCONTAS''
+	 echo "+-------------------------------------------------+OK"
+	 
+echo "Criando DKIM"
+$UsrZ '/opt/zimbra/libexec/zmdkimkeyutil -a -d '$NEWDOMAIN''
+	 echo "+-------------------------------------------------+OK"
+	 
+echo
+echo
+echo "Aperte <ENTER> para continuar e começar..."
+read
+
+echo "[`date`] ==== Fim de rotina..."
