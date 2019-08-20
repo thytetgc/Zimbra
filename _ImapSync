@@ -1,4 +1,11 @@
 #!/bin/bash
+#+----------------GERANDO LOG-----------------------+OK"
+SCRIPT=`basename $0`
+LOG=`echo /opt/zimbra/$SCRIPT.log | sed s/'.sh'/'.log'/g`
+exec &> >(tee -a "$LOG")
+echo "[`date`] ==== Inicio de rotina..."
+#+----------------GERANDO LOG-----------------------+OK"
+
 clear
 
 #Checa se o usuario é root
@@ -11,14 +18,14 @@ if [ $LOCAL_USER != "root" ] ; then
 	exit
 fi
 	dir="Diretorio Atual		 : `pwd`"
-	hostname="Hostname			 : `hostname --fqdn`"
-	ip="IP						 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
-  versaoso="Versao S.O.		 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
-	release="Release			 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
-	codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
-	kernel="Kernel				 : `uname -r`"
+	hostname="Hostname		 : `hostname --fqdn`"
+	ip="IP				 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
+  	versaoso="Versao S.O.		 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	release="Release		 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	codename="Codename		 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	kernel="Kernel			 : `uname -r`"
 	arquitetura="Arquitetura	 : `uname -m`"
-	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
+	versaozimbra="Versao Zimbra 	 : `su - zimbra -c 'zmcontrol -v'`"
   echo "+-------------------------------------------------+"
   echo "|           Utilitario para Zimbra                |"
   echo "+-------------------------------------------------+"
@@ -209,6 +216,7 @@ echo "Subject: $SUBJECT2
 $MESSAGE2" | "$MAIL" "$MAIL_RECIPIENT"
 echo "$SCRIPT_NAME em $TIME_NOW ainda está em execução"
 #fi
+echo "[`date`] ==== Fim de rotina..."
 	Principal
 } 
 Principal
