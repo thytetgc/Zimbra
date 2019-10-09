@@ -18,46 +18,46 @@ if [ $LOCAL_USER != "root" ] ; then
 	exit
 fi
 	dir="Diretorio Atual		 : `pwd`"
-	hostname="Hostname		 : `hostname --fqdn`"
-	ip="IP			      	 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
- 	versaoso="Versao S.O.	 	 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
-	release="Release		 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
-	codename="Codename		 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
-	kernel="Kernel			 : `uname -r`"
+	hostname="Hostname			 : `hostname --fqdn`"
+	ip="IP						 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
+    versaoso="Versao S.O.		 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	release="Release			 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	kernel="Kernel				 : `uname -r`"
 	arquitetura="Arquitetura	 : `uname -m`"
-	versaozimbra="Versao Zimbra	 : `su - zimbra -c 'zmcontrol -v'`"
-  echo "+-------------------------------------------------+"
-  echo "|           Utilitario para Zimbra                |"
-  echo "+-------------------------------------------------+"
-  echo "+-------------------------------------------------+"
-  echo "| Escrito por:                                    |"
-  echo "| Thiago Castro - www.hostlp.net                  |"
-  echo "+-------------------------------------------------+"
-  echo
-  echo $dir
-  echo "+-------------------------------------------------+"
-  echo $hostname
-  echo "+-------------------------------------------------+"
-  echo $ip
-  echo "+-------------------------------------------------+"
-  echo $versaoso
-  echo "+-------------------------------------------------+"
-  echo $release
-  echo "+-------------------------------------------------+"
-  echo $codename
-  echo "+-------------------------------------------------+"
-  echo $kernel
-  echo "+-------------------------------------------------+"
-  echo $arquitetura
-  echo "+-------------------------------------------------+"
-  echo $versaozimbra
-  echo "+-------------------------------------------------+"
-  echo
-  echo "Aperte <ENTER> para continuar e começar..."
-  read 
-  echo
-  echo "==================EXECUTANDO======================="
-  echo
+	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
+    echo "+-------------------------------------------------+"
+    echo "|           Utilitario para Zimbra                |"
+    echo "+-------------------------------------------------+"
+    echo "+-------------------------------------------------+"
+    echo "| Escrito por:                                    |"
+    echo "| Thiago Castro - www.hostlp.net                  |"
+    echo "+-------------------------------------------------+"
+    echo
+    echo $dir
+	echo "+-------------------------------------------------+"
+	echo $hostname
+	echo "+-------------------------------------------------+"
+	echo $ip
+	echo "+-------------------------------------------------+"
+	echo $versaoso
+	echo "+-------------------------------------------------+"
+	echo $release
+	echo "+-------------------------------------------------+"
+	echo $codename
+	echo "+-------------------------------------------------+"
+    echo $kernel
+	echo "+-------------------------------------------------+"
+    echo $arquitetura
+	echo "+-------------------------------------------------+"
+	echo $versaozimbra
+	echo "+-------------------------------------------------+"
+	echo
+	echo "Aperte <ENTER> para continuar e começar..."
+	read 
+	echo
+	echo "==================EXECUTANDO======================="
+	echo
 
 #Variavel
 UsrZ="su - zimbra -c"
