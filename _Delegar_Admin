@@ -1,0 +1,149 @@
+#!/bin/bash
+#+----------------GERANDO LOG-----------------------+OK"
+SCRIPT=`basename $0`
+LOG=`echo /opt/zimbra/$SCRIPT.log | sed s/'.sh'/'.log'/g`
+exec &> >(tee -a "$LOG")
+echo "[`date`] ==== Inicio de rotina..."
+#+----------------GERANDO LOG-----------------------+OK"
+
+clear
+
+#Checa se o usuario é Zimbra
+LOCAL_USER=`id -u -n`
+
+if [ $LOCAL_USER != "zimbra" ] ; then
+	echo "     Rodar como usuario Zimbra"
+	echo "     saindo..."
+	echo ""
+	exit
+fi
+	dir="Diretorio Atual		 : `pwd`"
+	hostname="Hostname			 : `hostname --fqdn`"
+	ip="IP						 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
+    versaoso="Versao S.O.		 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	release="Release			 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	kernel="Kernel				 : `uname -r`"
+	arquitetura="Arquitetura	 : `uname -m`"
+	versaozimbra="Versao Zimbra  : `zmcontrol -v`"
+    echo "+-------------------------------------------------+"
+    echo "|           Utilitario para Zimbra                |"
+    echo "+-------------------------------------------------+"
+    echo "+-------------------------------------------------+"
+    #echo "| Escrito por:                                    |"
+    #echo "| Thiago Castro - www.hostlp.net                  |"
+    echo "+-------------------------------------------------+"
+    echo
+    echo $dir
+	echo "+-------------------------------------------------+"
+	echo $hostname
+	echo "+-------------------------------------------------+"
+	echo $ip
+	echo "+-------------------------------------------------+"
+	echo $versaoso
+	echo "+-------------------------------------------------+"
+	echo $release
+	echo "+-------------------------------------------------+"
+	echo $codename
+	echo "+-------------------------------------------------+"
+    echo $kernel
+	echo "+-------------------------------------------------+"
+    echo $arquitetura
+	echo "+-------------------------------------------------+"
+	echo $versaozimbra
+	echo "+-------------------------------------------------+"
+	echo
+	echo "Aperte <ENTER> para continuar e começar..."
+	read 
+	sleep 5
+	echo
+	echo "==================EXECUTANDO======================="
+	echo
+
+choose_domain() {
+	clear
+	if [ ! -z '$1' ] ; then
+		if [ "$1" == "fail" ] ; then 
+			echo "     !!! Dominio $USER_EMAIL não existe !!!"
+			echo ""
+		fi
+	fi
+	echo "#########################################################"
+	read -p '#     Digite o nome do domínio: ' DOMAIN
+
+	DOMAIN_CHECK=`zmprov gad |grep -E ^$DOMAIN |wc -l`
+}
+choose_user() {
+	clear
+	if [ ! -z '$1' ] ; then
+		if [ "$1" == "fail" ] ; then 
+			echo "     !!! $USER não existe !!!"
+			echo ""
+		fi
+	fi
+	echo "#########################################################"
+	read -p '#     Digite o email do usuário: ' USER_EMAIL
+
+#	echo "zmprov gaa $DOMAIN |grep -E ^$USER_EMAIL "
+	USER_CHECK=`zmprov -l gaa $DOMAIN |grep -E ^$USER_EMAIL |wc -l`
+}
+delegateAdmin() {
+
+		zmprov ma $USER_EMAIL zimbraIsDelegatedAdminAccount TRUE
+		zmprov ma $USER_EMAIL zimbraAdminConsoleUIComponents cartBlancheUI \
+		zimbraAdminConsoleUIComponents domainListView zimbraAdminConsoleUIComponents \
+		accountListView zimbraAdminConsoleUIComponents DLListView
+		zmprov ma $USER_EMAIL zimbraDomainAdminMaxMailQuota 0
+		zmprov grantRight domain $DOMAIN usr $USER_EMAIL +createAccount
+		zmprov grantRight domain $DOMAIN usr $USER_EMAIL +createAlias
+		zmprov grantRight domain $DOMAIN usr $USER_EMAIL +createCalendarResource
+		zmprov grantRight domain $DOMAIN usr $USER_EMAIL +createDistributionList
+		zmprov grantRight domain $DOMAIN usr $USER_EMAIL +deleteAlias
+		zmprov grantRight domain $DOMAIN usr $USER_EMAIL +listDomain
+		zmprov grantRight domain $DOMAIN usr $USER_EMAIL +domainAdminRights
+		zmprov grantRight domain $DOMAIN usr $USER_EMAIL +configureQuota
+		zmprov grantRight domain $DOMAIN usr $USER_EMAIL set.account.zimbraAccountStatus
+		zmprov grantRight domain $DOMAIN usr $USER_EMAIL set.account.sn
+		zmprov grantRight domain $DOMAIN usr $USER_EMAIL set.account.displayName
+		zmprov grantRight domain $DOMAIN usr $USER_EMAIL set.account.zimbraPasswordMustChange
+		zmprov grantRight account $USER_EMAIL usr $USER_EMAIL +deleteAccount
+		zmprov grantRight account $USER_EMAIL usr $USER_EMAIL +getAccountInfo
+		zmprov grantRight account $USER_EMAIL usr $USER_EMAIL +getAccountMembership
+		zmprov grantRight account $USER_EMAIL usr $USER_EMAIL +getMailboxInfo
+		zmprov grantRight account $USER_EMAIL usr $USER_EMAIL +listAccount
+		zmprov grantRight account $USER_EMAIL usr $USER_EMAIL +removeAccountAlias
+		zmprov grantRight account $USER_EMAIL usr $USER_EMAIL +renameAccount
+		zmprov grantRight account $USER_EMAIL usr $USER_EMAIL +setAccountPassword
+		zmprov grantRight account $USER_EMAIL usr $USER_EMAIL +viewAccountAdminUI
+		zmprov grantRight account $USER_EMAIL usr $USER_EMAIL +configureQuota
+		echo
+		echo "Feito! teste seu novo usuário admin"
+}
+#Start script
+choose_domain
+choose_user
+
+
+if [ $DOMAIN_CHECK -ne 1 ] ; then
+	choose_domain fail
+fi
+if [ $USER_CHECK -ne 1 ] ; then
+	choose_user fail
+fi
+clear
+echo ""
+echo "     Aplicando privilégios de administrador a $USER_EMAIL no domínio $DOMAIN"
+read -r -p "     Você tem certeza? (S/n) " ACCEPT_OPTION
+case $ACCEPT_OPTION in
+	[sS]* )
+		echo "Começando..."
+		delegateAdmin
+		;;
+
+	*)
+		echo "Saindo..."
+		exit 0
+		;;
+esac
+
+echo "[`date`] ==== Fim de rotina..."
