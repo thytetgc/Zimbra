@@ -12,22 +12,22 @@ clear
 LOCAL_USER=`id -u -n`
 
 if [ $LOCAL_USER != "root" ] ; then
-	echo "     Rodar como usuario root"
-	echo "     saindo..."
-	echo ""
-	exit
+        echo "     Rodar como usuario root"
+        echo "     saindo..."
+        echo ""
+        exit
 fi
-	dir="Diretorio Atual		 : `pwd`"
-	hostname="Hostname			 : `hostname --fqdn`"
-	ip="IP						 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
-    versaoso="Versao S.O.		 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
-	release="Release			 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
-	codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
-	kernel="Kernel				 : `uname -r`"
-	arquitetura="Arquitetura	 : `uname -m`"
-	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
+        dir="Diretorio Atual             : `pwd`"
+        hostname="Hostname                       : `hostname --fqdn`"
+        ip="IP                                           : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
+    versaoso="Versao S.O.                : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+        release="Release                         : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+        codename="Codename                       : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+        kernel="Kernel                           : `uname -r`"
+        arquitetura="Arquitetura         : `uname -m`"
+        versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra                |"
+    echo "|           Utilitario para Zimbra   v1.0         |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -35,30 +35,30 @@ fi
     echo "+-------------------------------------------------+"
     echo
     echo $dir
-	echo "+-------------------------------------------------+"
-	echo $hostname
-	echo "+-------------------------------------------------+"
-	echo $ip
-	echo "+-------------------------------------------------+"
-	echo $versaoso
-	echo "+-------------------------------------------------+"
-	echo $release
-	echo "+-------------------------------------------------+"
-	echo $codename
-	echo "+-------------------------------------------------+"
+        echo "+-------------------------------------------------+"
+        echo $hostname
+        echo "+-------------------------------------------------+"
+        echo $ip
+        echo "+-------------------------------------------------+"
+        echo $versaoso
+        echo "+-------------------------------------------------+"
+        echo $release
+        echo "+-------------------------------------------------+"
+        echo $codename
+        echo "+-------------------------------------------------+"
     echo $kernel
-	echo "+-------------------------------------------------+"
+        echo "+-------------------------------------------------+"
     echo $arquitetura
-	echo "+-------------------------------------------------+"
-	echo $versaozimbra
-	echo "+-------------------------------------------------+"
-	echo
-	echo "Aperte <ENTER> para continuar e começar..."
-	read 
-	sleep 5
-	echo
-	echo "==================EXECUTANDO======================="
-	echo
+        echo "+-------------------------------------------------+"
+        echo $versaozimbra
+        echo "+-------------------------------------------------+"
+        echo
+        echo "Aperte <ENTER> para continuar e começar..."
+        read
+        sleep 5
+        echo
+        echo "==================EXECUTANDO======================="
+        echo
 
 #Instalando ImapSync
 echo "Deseja instalar ImapSync? - Sim/Nao"
@@ -66,28 +66,31 @@ read CONFIRMA
 case $CONFIRMA in
 s|S|Sim|sim)
 sudo apt-get install makepasswd rcs perl-doc libio-tee-perl git libmail-imapclient-perl libdigest-md5-file-perl libterm-readkey-perl libfile-copy-recursive-perl build-essential make automake libunicode-string-perl libauthen-ntlm-perl libcrypt-ssleay-perl libdigest-hmac-perl libfile-copy-recursive-perl libio-compress-perl libio-socket-inet6-perl libio-socket-ssl-perl libio-tee-perl libmodule-scandeps-perl libnet-ssleay-perl libpar-packer-perl libreadonly-perl libterm-readkey-perl libtest-pod-perl libtest-simple-perl libunicode-string-perl liburi-perl cpanminus libssl-dev -y
-sudo cpanm JSON::WebToken Test::MockObject Unicode::String Data::Uniqid Sys::MemInfo Regexp::Common JSON::WebToken::Crypt::RSA Dist::CheckConflicts Crypt::OpenSSL::RSA File::Tail
+
+sudo apt-get install libauthen-ntlm-perl libclass-load-perl libcrypt-ssleay-perl liburi-perl libdata-uniqid-perl libdigest-hmac-perl libdist-checkconflicts-perl libfile-copy-recursive-perl libio-compress-perl libio-socket-inet6-perl libio-socket-ssl-perl libio-tee-perl libmail-imapclient-perl libmodule-scandeps-perl libnet-ssleay-perl libpar-packer-perl libreadonly-perl libsys-meminfo-perl libterm-readkey-perl libtest-fatal-perl libtest-mock-guard-perl libtest-pod-perl libtest-requires-perl libtest-simple-perl libunicode-string-perl -y
+
+sudo cpanm JSON::WebToken Test::MockObject Unicode::String Data::Uniqid Sys::MemInfo Regexp::Common JSON::WebToken::Crypt::RSA Dist::CheckConflicts Crypt::OpenSSL::RSA File::Tail CGI
 cd /usr/src
 git clone git://github.com/imapsync/imapsync.git
 cd imapsync
 mkdir dist
 sudo make install
-	echo
-	echo
-	echo "Verifique se tudo correu bem com a instalação"
-	echo 
-	echo "Aperte <ENTER> para começar a sincronização..."
-	echo "Aperte <Ctr+C> para Sair..."
-	read 
-	echo
-		;;
+        echo
+        echo
+        echo "Verifique se tudo correu bem com a instalação"
+        echo
+        echo "Aperte <ENTER> para começar a sincronização..."
+        echo "Aperte <Ctr+C> para Sair..."
+        read
+        echo
+                ;;
 n|N|Nao|nao)
-		;;
+                ;;
 *) echo  "Opcao Invalida" ;; esac
 
 ############################################################
 clear
-#Parametros 
+#Parametros
 SERVERNAME=$HOSTNAME
 SCRIPT_NAME="$SERVERNAME - Batch IMAP TO IMAP"
 MAIL=/opt/zimbra/common/sbin/sendmail;
@@ -112,30 +115,30 @@ echo -n "Dominio: "
 read DOMAIN_MIG
 DOMAIN="$DOMAIN_MIG"
 
-	echo
-	echo "Aperte <ENTER> para começar a migração..."
-	read 
+        echo
+        echo "Aperte <ENTER> para começar a migração..."
+        read
 
 Principal() {
 clear
-	echo "Escolha qual forma de Migração"
-	echo "Opcoes:"
+        echo "Escolha qual forma de Migração"
+        echo "Opcoes:"
     echo "1. Zimbra para Zimbra"
-	echo "2. Imap para Imap"
-    echo 
-	echo "3. Sair"
-	echo
-	echo
+        echo "2. Imap para Imap"
+    echo
+        echo "3. Sair"
+        echo
+        echo
     echo -n "Entre com a opcao desejada => "
     read opcao
     echo
     case $opcao in
         1) Z2Z ;;
-		2) I2I ;;
-		3) exit ;;
+                2) I2I ;;
+                3) exit ;;
         *) "Opcao desconhecida." ; echo ; Principal ;;
      esac
-}	
+}
 
 ############################################################
 #Começo do Script do Zimbra to Zimbra
@@ -159,7 +162,7 @@ UsrZ="su - zimbra -c"
 $UsrZ 'for USER in $(zmprov -l gaa); do
 imapsync --addheader --nosyncacls --subscribe --syncinternaldates --host1 '$HOST1' --user1 '$USER' --authuser1 '$ADMIN_ORIGEM' --password1 '$PASSWORDADMIN_ORIGEM' --authmech1 PLAIN --host2 '$HOST2' --user2 '$USER' --authuser2 '$ADMIN_DESTINO' --password2 '$PASSWORDADMIN_DESTINO' --authmech2 PLAIN --noauthmd5
 done'
-	EMAIL
+        EMAIL
 }
 
 ############################################################
@@ -188,13 +191,13 @@ TIME_NOW=$(date +"%Y-%m-%d %T")
 echo "Usuário $USER_NAME feito"
 echo "Finalizado $USER_NAME $TIME_NOW" >> $LOGFILE
 echo "" >> $LOGFILE
-done ; } < Contas-ImapSync
+done ; } < /opt/zimbra/Contas-ImapSync
 TIME_NOW=$(date +"%Y-%m-%d %T")
 echo "" >> $LOGFILE
 echo "IMAPSync Finalizado - $TIME_NOW" >> $LOGFILE
 echo "------------------------------------" >> $LOGFILE
 echo "[`date`] ==== Fim de rotina..."
-	EMAIL
+        EMAIL
 }
 
 
@@ -218,6 +221,6 @@ $MESSAGE2" | "$MAIL" "$MAIL_RECIPIENT"
 echo "$SCRIPT_NAME em $TIME_NOW ainda está em execução"
 echo "[`date`] ==== Fim de rotina..."
 #fi
-	Principal
-} 
+        Principal
+}
 Principal
