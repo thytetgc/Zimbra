@@ -117,6 +117,9 @@ DOMAIN="$DOMAIN_MIG"
 
         echo
         echo "Aperte <ENTER> para começar a migração..."
+		echo
+		echo "NÃO ESQUEÇA DE CRIAR O ARQUIVO "Contas-ImapSync em /opt/zimbra/""
+		echo "COM CONTEUDO DE "usuario;senha""
         read
 
 Principal() {
