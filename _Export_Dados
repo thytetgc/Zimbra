@@ -1,7 +1,7 @@
 #!/bin/bash
 #+----------------GERANDO LOG-----------------------+OK"
 SCRIPT=`basename $0`
-LOG=`echo /opt/zimbra/$SCRIPT.log | sed s/'.sh'/'.log'/g`
+LOG=`echo /opt/zimbra/backup/$SCRIPT.log | sed s/'.sh'/'.log'/g`
 exec &> >(tee -a "$LOG")
 echo "[`date`] ==== Inicio de rotina..."
 #+----------------GERANDO LOG-----------------------+OK"
