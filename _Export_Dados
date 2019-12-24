@@ -70,7 +70,7 @@ IP=`/sbin/ifconfig $IFACE | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){
 #read DESTB
 #echo
 #DEST="$DESTB/Zimbra/`hostname --fqdn`"
-DEST="/mnt/st2/Zimbra/`hostname --fqdn`"
+DEST="/opt/zimbra/backup"
 DESTTEMP="/tmp"
 ZMPROV="/opt/zimbra/bin/zmprov"
 ZMMAILBOX="/opt/zimbra/bin/zmmailbox"
