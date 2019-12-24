@@ -55,7 +55,7 @@ echo "+-------------------------------------------------+"
   echo "+-------------------------------------------------+"
   echo
 #  echo "Aperte <ENTER> para continuar e começar..."
-  read 
+#  read 
   echo
   echo "==================EXECUTANDO======================="
   echo
