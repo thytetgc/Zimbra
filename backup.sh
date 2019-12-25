@@ -18,7 +18,7 @@ mkdir -p $backup
 
 # Definição de Variavel
 datum=$(date +'%Y%m%d')
-dateiname=$backup/backup$datum.tar
+dateiname=$backup/"`hostname -d`"-backup$datum.tar
 
 # -----------------------------------------------------
 function f_delFiles()
@@ -26,7 +26,7 @@ function f_delFiles()
 # $1 Diretório de backup
 {
   loeschdatum=$(date --date='7 days ago' +'%Y%m%d')
-  rm $1/backup$loeschdatum.tar
+  rm $1/"`hostname -d`"-backup$loeschdatum.tar
 }
 
 echo [`date +'%d.%m.%Y %H:%M'`] Exclundo arquivos em $backup, com mais de 7 dias [2/4] ...
