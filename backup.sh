@@ -9,7 +9,7 @@ su - zimbra -c '/Scripts/_Export_Dados'
          echo "+-------------------------------------------------+OK"
 
 # Diretórios para fazer backup, /etc /root /var
-source='/Backup'
+source='/opt/zimbra/backup/'
 
 # Diretório de backup, /Backup
 #backup=/Backup/"`hostname`"
