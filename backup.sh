@@ -11,16 +11,16 @@ su - zimbra -c '/Scripts/_Export_Dados'
 # Diretórios para fazer backup, /etc /root /var
 source='/opt/zimbra/backup/'
 
-# Diretório de backup, /Backup
-#backup=/Backup/"`hostname`"
-backup=/Backup
-mkdir -p $backup
-
 # Senha para compactação
 senha='q|?a)N2#8d^JS^lm2EF29g*D$l#}aIu('
 
 # Pasta para Excluir do backup
-exclude=''
+#exclude=''
+
+# Diretório de backup, /Backup
+#backup=/Backup/"`hostname`"
+backup=/Backup
+mkdir -p $backup
 
 # Definição de Variavel
 datum=$(date +'%Y%m%d')
@@ -52,4 +52,3 @@ bash /Scripts/upload.sh
 
 echo [`date +'%d.%m.%Y %H:%M'`] Pronto!
          echo "+-------------------------------------------------+OK"
-
