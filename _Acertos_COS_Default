@@ -187,6 +187,10 @@ echo "Altera Idioma para pt_BR"
 $UsrZ 'zmprov mc default zimbraPrefLocale pt_BR'
 	 echo "+-------------------------------------------------+OK"
 
+echo "Agrupar e-mail por mensagem"
+$UsrZ 'zmprov mc default zimbraPrefGroupMailBy message'
+	 echo "+-------------------------------------------------+OK"
+
 echo "Exibe imagens externas"
 $UsrZ 'zmprov mc default zimbraPrefDisplayExternalImages TRUE'
 	 echo "+-------------------------------------------------+OK"
@@ -204,7 +208,7 @@ $UsrZ 'zmprov mc default zimbraPrefMailFlashTitle TRUE'
 	 echo "+-------------------------------------------------+OK"
 
 echo "Piscar navegador quando houver novas mensagens"
-$UsrZ 'zmprov mc default zimbraPrefMailFlashTitle TRUE'
+$UsrZ 'zmprov mc default zimbraPrefMailFlashIcon TRUE'
 	 echo "+-------------------------------------------------+OK"
 
 echo "AAtiva notificação para novos eventos"
@@ -213,10 +217,7 @@ $UsrZ 'zmprov mc default zimbraPrefCalendarToasterEnabled TRUE'
 
 echo "Skin padrão HARMONY"
 $UsrZ 'zmprov mc default zimbraPrefSkin harmony'
-	 echo "+-------------------------------------------------+OK"
-
-echo "Bloqueia alteração de Skin"
-$UsrZ 'zmprov mc default zimbraFeatureSkinChangeEnabled FALSE'
+$UsrZ 'zmprov mc default zimbraAvailableSkin harmony'
 	 echo "+-------------------------------------------------+OK"
 
 echo "Ativa e desativa alguns Zimlets"
