@@ -220,17 +220,17 @@ $UsrZ 'zmprov mc default zimbraFeatureSkinChangeEnabled FALSE'
 	 echo "+-------------------------------------------------+OK"
 
 echo "Ativa e desativa alguns Zimlets"
-$UsrZ 'zimbraZimletAvailableZimlets: !com_zimbra_attachmail'
-$UsrZ 'zimbraZimletAvailableZimlets: +com_zimbra_phone'
-$UsrZ 'zimbraZimletAvailableZimlets: +com_zimbra_srchhighlighter'
-$UsrZ 'zimbraZimletAvailableZimlets: !com_zimbra_url'
-$UsrZ 'zimbraZimletAvailableZimlets: +com_zimbra_mailarchive'
-$UsrZ 'zimbraZimletAvailableZimlets: !com_zimbra_email'
-$UsrZ 'zimbraZimletAvailableZimlets: +com_zimbra_webex'
-$UsrZ 'zimbraZimletAvailableZimlets: +com_zextras_drive_open'
-$UsrZ 'zimbraZimletAvailableZimlets: +com_zimbra_ymemoticons'
-$UsrZ 'zimbraZimletAvailableZimlets: !com_zimbra_attachcontacts'
-$UsrZ 'zimbraZimletAvailableZimlets: !com_zimbra_date'
+$UsrZ 'zmprov mc default zimbraZimletAvailableZimlets !com_zimbra_attachmail'
+$UsrZ 'zmprov mc default zimbraZimletAvailableZimlets +com_zimbra_phone'
+$UsrZ 'zmprov mc default zimbraZimletAvailableZimlets +com_zimbra_srchhighlighter'
+$UsrZ 'zmprov mc default zimbraZimletAvailableZimlets !com_zimbra_url'
+$UsrZ 'zmprov mc default zimbraZimletAvailableZimlets +com_zimbra_mailarchive'
+$UsrZ 'zmprov mc default zimbraZimletAvailableZimlets !com_zimbra_email'
+$UsrZ 'zmprov mc default zimbraZimletAvailableZimlets +com_zimbra_webex'
+$UsrZ 'zmprov mc default zimbraZimletAvailableZimlets +com_zextras_drive_open'
+$UsrZ 'zmprov mc default zimbraZimletAvailableZimlets +com_zimbra_ymemoticons'
+$UsrZ 'zmprov mc default zimbraZimletAvailableZimlets !com_zimbra_attachcontacts'
+$UsrZ 'zmprov mc default zimbraZimletAvailableZimlets !com_zimbra_date'
 	 echo "+-------------------------------------------------+OK"
 
 echo "Ativa bloqueio por login incorreto"
@@ -241,8 +241,8 @@ echo "Maximo de 10 login incorrretos"
 echo "Bloqueia por 3min"
 echo "20seg entre as tentativas"
 $UsrZ 'zmprov mc default zimbraPasswordLockoutMaxFailures 10'
-$UsrZ 'zimbraPasswordLockoutDuration 3m'
-$UsrZ 'zimbraPasswordLockoutFailureLifetime 20s'
+$UsrZ 'zmprov mc default zimbraPasswordLockoutDuration 3m'
+$UsrZ 'zmprov mc default zimbraPasswordLockoutFailureLifetime 20s'
 	 echo "+-------------------------------------------------+OK"
 
 echo "Maximo 3h do token do Console Admin"
@@ -254,7 +254,7 @@ $UsrZ 'zmprov mc default zimbraMailIdleSessionTimeout 1h'
 	 echo "+-------------------------------------------------+OK"
 
 echo "Maximo 30 dias de visiilidade da lixeira para usuario final"
-$UsrZ 'zimbraDumpsterUserVisibleAge 30d'
+$UsrZ 'zmprov mc default zimbraDumpsterUserVisibleAge 30d'
 	 echo "+-------------------------------------------------+OK"
 
 echo "Criando DKIM"
