@@ -1,0 +1,269 @@
+#!/bin/bash
+#+----------------GERANDO LOG-----------------------+OK"
+SCRIPT=`basename $0`
+LOG=`echo /Scripts_Zimbra/$SCRIPT.log | sed s/'.sh'/'.log'/g`
+exec &> >(tee -a "$LOG")
+echo "[`date`] ==== Inicio de rotina..."
+#+----------------GERANDO LOG-----------------------+OK"
+
+clear
+
+#Checa se o usuario é root
+LOCAL_USER=`id -u -n`
+
+if [ $LOCAL_USER != "root" ] ; then
+	echo "     Rodar como usuario root"
+	echo "     saindo..."
+	echo ""
+	exit
+fi
+	dir="Diretorio Atual		 : `pwd`"
+	hostname="Hostname			 : `hostname --fqdn`"
+	ip="IP						 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
+    versaoso="Versao S.O.		 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	release="Release			 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	kernel="Kernel				 : `uname -r`"
+	arquitetura="Arquitetura	 : `uname -m`"
+	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
+    echo "+-------------------------------------------------+"
+     echo "|           Utilitario para Zimbra     v1.0      |"
+    echo "+-------------------------------------------------+"
+    echo "+-------------------------------------------------+"
+    echo "| Escrito por:                                    |"
+    echo "| Thiago Castro - www.hostlp.net                  |"
+    echo "+-------------------------------------------------+"
+    echo
+    echo $dir
+	echo "+-------------------------------------------------+"
+	echo $hostname
+	echo "+-------------------------------------------------+"
+	echo $ip
+	echo "+-------------------------------------------------+"
+	echo $versaoso
+	echo "+-------------------------------------------------+"
+	echo $release
+	echo "+-------------------------------------------------+"
+	echo $codename
+	echo "+-------------------------------------------------+"
+    echo $kernel
+	echo "+-------------------------------------------------+"
+    echo $arquitetura
+	echo "+-------------------------------------------------+"
+	echo $versaozimbra
+	echo "+-------------------------------------------------+"
+	echo
+	echo "Aperte <ENTER> para continuar e começar..."
+	read 
+	echo
+	echo "==================EXECUTANDO======================="
+	echo
+
+#Variavel
+UsrZ="su - zimbra -c"
+
+echo "Alterar Quota padrão por usuario do dominio em bytes (1073741824 = 1GB / 2147483648 = 2GB / 3221225472 = 3GB / 4294967296 = 4GB / 5368709120 = 5GB / 0 = ILIMITADO)"
+echo -n "Digite em bytes a quota do novo Dominio: "
+read USRQUOTA
+$UsrZ 'zmprov mc default zimbraMailQuota "'$USRQUOTA'"'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Ajustando o tempo de vida dos e-mails (0 = ILIMITADO / Padrão HOSTLP 7200)"
+echo -n "Digite em dias o tempo de vida dos e-mails do Dominio: "
+read LIFETIME
+$UsrZ 'zmprov mc default zimbraMailMessageLifetime "'$LIFETIME'"'
+$UsrZ 'zmprov ms `zmhostname` zimbraMailPurgeSleepInterval 1m'
+	 echo "+-------------------------------------------------+OK"
+	 
+echo "Adicioando todos os Dominios para o COS default"
+COS="`su - zimbra -c "zmprov gc default zimbraId|cut -d' ' -f2|egrep -v 'name|$^'"`"
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraDomainDefaultCOSId '$COS'; done'
+	 echo "+-------------------------------------------------+OK"
+	 
+echo "Alterando Aviso de Quota para 90%"
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraDomainAggregateQuotaWarnPercent 90; done'
+	 echo "+-------------------------------------------------+OK"
+	 
+echo "Acertando Fuso Horario -0300"
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraPrefTimeZoneId America/Sao_Paulo; done'
+	 echo "+-------------------------------------------------+OK"
+	 
+echo "Acertando Protocolo"
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraPublicServiceProtocol https; done'
+	 echo "+-------------------------------------------------+OK"
+	 
+echo "Alterar Quota do dominio em bytes (10737418240 = 10GB / 21474836480 = 20GB / 32212254720 = 30GB / 42949672960 = 40GB / 53687091200 = 50GB)"
+echo "Ou ENTER para ilimitado"
+echo -n "Digite em bytes a quota do novo Dominio: "
+read DOMANINQUOTA
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraMailDomainQuota "'$DOMANINQUOTA'"; done'
+	 echo "+-------------------------------------------------+OK"
+	 
+echo "Enviar e-mail de aviso de Quota para: "
+echo -n "Digite o e-mail Completo: "
+read EMAILQUOTA
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraDomainAggregateQuotaWarnEmailRecipient "'$EMAILQUOTA'"; done'
+	 echo "+-------------------------------------------------+OK"
+	 
+echo "Politica de Quota agregada ao Dominio: "
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraDomainAggregateQuotaPolicy BLOCKSENDRECEIVE; done'
+	 echo "+-------------------------------------------------+OK"
+	 
+echo "Alterando nome do Compartilhamento do Porta Arquivos"
+echo -n "Digite o nome do Compartilhamento do Porta Arquivos: "
+read PORTAARQ
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraBasicAuthRealm "'$PORTAARQ'"; done'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Criando usuario GALSYNC: "
+$UsrZ 'for dominios in $(zmprov gad); do zmgsautil createAccount -a galsync@$dominios -n default --domain $dominios -t zimbra -s `hostname --fqdn` -f default; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmgsautil forceSync -a galsync@$dominios -n default; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov mds galsync@$dominios default zimbraDataSourcePollingInterval 12h; done'
+	 echo "+-------------------------------------------------+OK"
+	 
+echo
+echo
+#Ajustes Finos
+echo "Ajustes finos"
+echo "+-------------------------------------------------+"
+echo "Alterando Logo"
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraSkinLogoURL https://site.hostlp.com.br; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraSkinLogoLoginBanner https://site.hostlp.com.br/imagens/zimbra/Logotipo_Novo_130x58.png; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraSkinLogoAppBanner https://site.hostlp.com.br/imagens/zimbra/Logotipo_Novo_80x36.png; done'
+	 echo "+-------------------------------------------------+OK"
+	 
+echo "Limitar usuarios para o Dominio"
+echo "Ou ENTER para ilimitado"
+echo -n "Quantas contas? "
+read QTSCONTAS
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraDomainMaxAccounts '$QTSCONTAS'; done'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Alterando CharSet do COS"
+$UsrZ 'for dominios in $(zmprov gad); do zmprov mc default zimbraPrefMailDefaultCharset UTF-8; done'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Bloqueia alteração de temas"
+$UsrZ 'zmprov mc default zimbraFeatureSkinChangeEnabled FALSE'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Bloqueia gerenciar Zimlets"
+$UsrZ 'zmprov mc default zimbraFeatureManageZimlets FALSE'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Habilite Client Touch de Celular"
+$UsrZ 'zmprov mc default zimbraFeatureTouchClientEnabled TRUE'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Ativa Lixeira"
+$UsrZ 'zmprov mc default zimbraDumpsterEnabled TRUE'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Bloqueia limpeza da lixeira automatica"
+$UsrZ 'zmprov mc default zimbraDumpsterPurgeEnabled FALSE'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Bloqueia acesso a IMAP"
+$UsrZ 'zmprov mc default zimbraImapEnabled FALSE'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Bloqueia acesso a IMAP externo"
+$UsrZ 'zmprov mc default zimbraFeatureImapDataSourceEnabled FALSE'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Bloqueia acesso a POP externo"
+$UsrZ 'zmprov mc default zimbraFeaturePop3DataSourceEnabled FALSE'
+	 echo "+-------------------------------------------------+OK"
+	 
+echo "Ativa lembrete por SMS"
+$UsrZ 'zmprov mc default zimbraFeatureCalendarReminderDeviceEmailEnabled TRUE'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Ativa operação em lote"
+$UsrZ 'zmprov mc default zimbraPrefShowSelectionCheckbox TRUE'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Altera Idioma para pt_BR"
+$UsrZ 'zmprov mc default zimbraPrefLocale pt_BR'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Exibe imagens externas"
+$UsrZ 'zmprov mc default zimbraPrefDisplayExternalImages TRUE'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Ativa notificação de mensagens novas"
+$UsrZ 'zmprov mc default zimbraPrefMailToasterEnabled TRUE'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Tocar som ao receber mensagem"
+$UsrZ 'zmprov mc default zimbraPrefMailSoundsEnabled TRUE'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Destaca aba quando houver novas mensagens"
+$UsrZ 'zmprov mc default zimbraPrefMailFlashTitle TRUE'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Piscar navegador quando houver novas mensagens"
+$UsrZ 'zmprov mc default zimbraPrefMailFlashTitle TRUE'
+	 echo "+-------------------------------------------------+OK"
+
+echo "AAtiva notificação para novos eventos"
+$UsrZ 'zmprov mc default zimbraPrefCalendarToasterEnabled TRUE'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Skin padrão HARMONY"
+$UsrZ 'zmprov mc default zimbraPrefSkin harmony'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Bloqueia alteração de Skin"
+$UsrZ 'zmprov mc default zimbraFeatureSkinChangeEnabled FALSE'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Ativa e desativa alguns Zimlets"
+$UsrZ 'zimbraZimletAvailableZimlets: !com_zimbra_attachmail'
+$UsrZ 'zimbraZimletAvailableZimlets: +com_zimbra_phone'
+$UsrZ 'zimbraZimletAvailableZimlets: +com_zimbra_srchhighlighter'
+$UsrZ 'zimbraZimletAvailableZimlets: !com_zimbra_url'
+$UsrZ 'zimbraZimletAvailableZimlets: +com_zimbra_mailarchive'
+$UsrZ 'zimbraZimletAvailableZimlets: !com_zimbra_email'
+$UsrZ 'zimbraZimletAvailableZimlets: +com_zimbra_webex'
+$UsrZ 'zimbraZimletAvailableZimlets: +com_zextras_drive_open'
+$UsrZ 'zimbraZimletAvailableZimlets: +com_zimbra_ymemoticons'
+$UsrZ 'zimbraZimletAvailableZimlets: !com_zimbra_attachcontacts'
+$UsrZ 'zimbraZimletAvailableZimlets: !com_zimbra_date'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Ativa bloqueio por login incorreto"
+$UsrZ 'zmprov mc default zimbraPasswordLockoutEnabled TRUE'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Maximo de 10 login incorrretos"
+echo "Bloqueia por 3min"
+echo "20seg entre as tentativas"
+$UsrZ 'zmprov mc default zimbraPasswordLockoutMaxFailures 10'
+$UsrZ 'zimbraPasswordLockoutDuration 3m'
+$UsrZ 'zimbraPasswordLockoutFailureLifetime 20s'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Maximo 3h do token do Console Admin"
+echo "Maximo 2h do token de Autenticação"
+echo "Limite de 1h de sessão ociosa"
+$UsrZ 'zmprov mc default zimbraAdminAuthTokenLifetime 3h'
+$UsrZ 'zmprov mc default zimbraAuthTokenLifetime 2h'
+$UsrZ 'zmprov mc default zimbraMailIdleSessionTimeout 1h'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Maximo 30 dias de visiilidade da lixeira para usuario final"
+$UsrZ 'zimbraDumpsterUserVisibleAge 30d'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Criando DKIM"
+$UsrZ 'for dominios in $(zmprov gad); do /opt/zimbra/libexec/zmdkimkeyutil -a -d $dominios; done'
+	 echo "+-------------------------------------------------+OK"
+	 
+echo
+echo
+echo "Aperte <ENTER> para continuar e começar..."
+read
+
+echo "[`date`] ==== Fim de rotina..."
