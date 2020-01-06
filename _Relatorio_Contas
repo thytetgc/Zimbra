@@ -113,10 +113,3 @@ cat $output | mail $sendto -s "Relatório de contas - $domain"
 
 
 echo "[`date`] ==== Fim de rotina..."
-
-https://brunoizidorio.com.br/script-listar-usuarios-e-suas-cotas-no-zimbra/
-https://wiki.zimbra.com/wiki/Get_all_user%27s_mailbox_size_from_CLI
-https://wiki.zimbra.com/wiki/Mailbox_usage_report
-https://wiki.zimbra.com/wiki/Getting_All_Users_Quota_Data
-https://wiki.zimbra.com/wiki/Quota_Warning_Script
-https://wiki.zimbra.com/wiki/Change_the_recipient_of_the_%22daily_mail_report%22
