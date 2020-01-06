@@ -1,0 +1,122 @@
+#!/bin/bash
+#+----------------GERANDO LOG-----------------------+OK"
+SCRIPT=`basename $0`
+LOG=`echo /Scripts_Zimbra/$SCRIPT.log | sed s/'.sh'/'.log'/g`
+exec &> >(tee -a "$LOG")
+echo "[`date`] ==== Inicio de rotina..."
+#+----------------GERANDO LOG-----------------------+OK"
+
+clear
+
+#Checa se o usuario é root
+LOCAL_USER=`id -u -n`
+
+if [ $LOCAL_USER != "root" ] ; then
+	echo "     Rodar como usuario root"
+	echo "     saindo..."
+	echo ""
+	exit
+fi
+	dir="Diretorio Atual		 : `pwd`"
+	hostname="Hostname			 : `hostname --fqdn`"
+	ip="IP						 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
+    versaoso="Versao S.O.		 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	release="Release			 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	kernel="Kernel				 : `uname -r`"
+	arquitetura="Arquitetura	 : `uname -m`"
+	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
+    echo "+-------------------------------------------------+"
+    echo "|           Utilitario para Zimbra  v1.0          |"
+    echo "+-------------------------------------------------+"
+    echo "+-------------------------------------------------+"
+    echo "| Escrito por:                                    |"
+    echo "| Thiago Castro - www.hostlp.net                  |"
+    echo "+-------------------------------------------------+"
+    echo
+    echo $dir
+	echo "+-------------------------------------------------+"
+	echo $hostname
+	echo "+-------------------------------------------------+"
+	echo $ip
+	echo "+-------------------------------------------------+"
+	echo $versaoso
+	echo "+-------------------------------------------------+"
+	echo $release
+	echo "+-------------------------------------------------+"
+	echo $codename
+	echo "+-------------------------------------------------+"
+    echo $kernel
+	echo "+-------------------------------------------------+"
+    echo $arquitetura
+	echo "+-------------------------------------------------+"
+	echo $versaozimbra
+	echo "+-------------------------------------------------+"
+	echo
+	echo
+	echo "==================EXECUTANDO======================="
+	echo
+	
+#Variavel
+UsrZ="su - zimbra -c"
+
+function human_size {
+sum=$1
+
+hum[1024]="Kb"
+hum[$((1024 * 1024))]="Mb"
+hum[$((1024 * 1024 * 1024))]="Gb"
+hum[$((1024 * 1024 * 1024 * 1024))]="Tb"
+
+x=$((1024 * 1024 * 1024 * 1024))
+
+if [ $sum -ge 1024 ]; then
+
+while [ $x -ge 1024 ]; do
+
+if [ $sum -ge $x ]; then
+/usr/bin/printf "%.1f%s\n" "$(echo $sum / $x | bc -l | sed 's/\,/./g')" "${hum[$x]}"
+break
+fi
+
+x=$(($x / 1024))
+done
+else
+printf "%sb\n" $sum
+fi
+}
+
+output="/tmp/accountusage"
+domain=$1
+sendto="thiago@hostlp.net"
+
+rm -f $output
+touch $output
+
+server=`/opt/zimbra/bin/zmhostname`
+/opt/zimbra/bin/zmprov gqu $server|grep $domain|awk {'print $1" "$3" "$2'}|sort|while read line
+do
+user=`echo $line|cut -f1 -d " "`
+usage=`echo $line|cut -f2 -d " "`
+quota=`echo $line|cut -f3 -d " "`
+status=`/opt/zimbra/bin/zmprov ga $user | grep  ^zimbraAccountStatus | cut -f2 -d " "`
+lastlogind=`su - zimbra -c '/opt/zimbra/bin/zmaccts | grep 'admin@automar3r.com.br' '|tr -s '  ' | cut -f5 -d " "'' | cut -c1-8 | sed 's:\(....\)\(..\)\(.*\):\1/\2/\3:'`
+lastloginh=`su - zimbra -c '/opt/zimbra/bin/zmaccts | grep 'admin@automar3r.com.br' '|tr -s '  ' | cut -f5 -d " "'' | cut -c9-14 | sed 's:\(..\)\(..\)\(.*\):\1-\2-\3:' | sed 's/-/:/g'`
+imap=`/opt/zimbra/bin/zmprov ga $user | grep zimbraImapEnabled | cut -f2 -d " " | sed 's/TRUE/Ativado/g' | sed 's/FALSE/Desativado/g'`
+echo "$user |Usado: $(human_size $usage) - Quota: $(human_size $quota)| |Status - $status| |Imap - $imap| |Ultimo Login: $lastlogind - $lastloginh" >> $output
+#echo "$user |Quota: `expr $usage / 1024 / 1024`Mb - `expr $quota / 1024 / 1024`Mb| |Status - $status| |Imap - $imap|" >> $output
+#all_accounts=`/opt/zimbra/bin/zmprov -l gaa`; for account in $all_accounts; do mbox_size=`/opt/zimbra/bin/zmmailbox -z -m $account gms`; echo "$account |Quota: $mbox_size |Status - $status| |Imap - $imap|" >> $output; done ;
+done
+
+
+cat $output | mail $sendto -s "Relatório de contas - $domain"
+
+
+echo "[`date`] ==== Fim de rotina..."
+
+https://brunoizidorio.com.br/script-listar-usuarios-e-suas-cotas-no-zimbra/
+https://wiki.zimbra.com/wiki/Get_all_user%27s_mailbox_size_from_CLI
+https://wiki.zimbra.com/wiki/Mailbox_usage_report
+https://wiki.zimbra.com/wiki/Getting_All_Users_Quota_Data
+https://wiki.zimbra.com/wiki/Quota_Warning_Script
+https://wiki.zimbra.com/wiki/Change_the_recipient_of_the_%22daily_mail_report%22
