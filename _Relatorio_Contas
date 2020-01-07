@@ -100,8 +100,8 @@ user=`echo $line|cut -f1 -d " "`
 usage=`echo $line|cut -f2 -d " "`
 quota=`echo $line|cut -f3 -d " "`
 status=`/opt/zimbra/bin/zmprov ga $user | grep  ^zimbraAccountStatus | cut -f2 -d " "`
-lastlogind=`su - zimbra -c '/opt/zimbra/bin/zmaccts | grep 'admin@automar3r.com.br' '|tr -s '  ' | cut -f5 -d " "'' | cut -c1-8 | sed 's:\(....\)\(..\)\(.*\):\1/\2/\3:'`
-lastloginh=`su - zimbra -c '/opt/zimbra/bin/zmaccts | grep 'admin@automar3r.com.br' '|tr -s '  ' | cut -f5 -d " "'' | cut -c9-14 | sed 's:\(..\)\(..\)\(.*\):\1-\2-\3:' | sed 's/-/:/g'`
+lastlogind=`su - zimbra -c '/opt/zimbra/bin/zmaccts | grep '$user' '|tr -s '  ' | cut -f5 -d " "'' | cut -c1-8 | sed 's:\(....\)\(..\)\(.*\):\1/\2/\3:'`
+lastloginh=`su - zimbra -c '/opt/zimbra/bin/zmaccts | grep '$user' '|tr -s '  ' | cut -f5 -d " "'' | cut -c9-14 | sed 's:\(..\)\(..\)\(.*\):\1-\2-\3:' | sed 's/-/:/g'`
 imap=`/opt/zimbra/bin/zmprov ga $user | grep zimbraImapEnabled | cut -f2 -d " " | sed 's/TRUE/Ativado/g' | sed 's/FALSE/Desativado/g'`
 echo "$user |Usado: $(human_size $usage) - Quota: $(human_size $quota)| |Status - $status| |Imap - $imap| |Ultimo Login: $lastlogind - $lastloginh" >> $output
 #echo "$user |Quota: `expr $usage / 1024 / 1024`Mb - `expr $quota / 1024 / 1024`Mb| |Status - $status| |Imap - $imap|" >> $output
