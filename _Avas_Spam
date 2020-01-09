@@ -1,0 +1,42 @@
+#!/bin/bash
+
+#+----------------GERANDO LOG-----------------------+OK"
+SCRIPT=`basename $0`
+LOG=`echo /tmp/$SCRIPT.log | sed s/'.sh'/'.log'/g`
+exec &> >(tee -a "$LOG")
+echo "[`date`] ==== Inicio de rotina..."
+#+----------------GERANDO LOG-----------------------+OK"
+
+clear
+#Checa se o usuario é root
+LOCAL_USER=`id -u -n`
+
+if [ $LOCAL_USER != "root" ] ; then
+	echo "     Rodar como usuario root"
+	echo "     saindo..."
+	echo ""
+	exit
+fi
+
+echo "Download do Filtro - AVAS SPAM..."
+	echo
+cd /tmp/
+wget --no-check-certificate --no-cache --no-cookies -N https://raw.githubusercontent.com/thytetgc/Zimbra/master/filtro-avas-spam 1&> /dev/null
+	echo "+-------------------------------------------------+OK"
+	echo
+
+echo "Exportando lista de usuarios..."
+	echo
+su - zimbra -c 'zmprov -l gaa | grep "$DOMAIN" | tee -a /tmp/usuarios'
+	echo "+-------------------------------------------------+OK"
+	echo
+
+echo "Importando Filtros..."
+	echo
+su - zimbra -c 'for user in `cat /tmp/usuarios`; do zmprov ma  $user zimbraMailSieveScript "`cat /tmp/filtro-avas-spam`";
+	echo "$user -- OK";
+done'
+	echo "+-------------------------------------------------+OK"
+	echo
+
+echo "[`date`] ==== Fim de rotina..."
