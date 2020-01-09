@@ -256,7 +256,7 @@ done
 	echo
 for user in `cat $DEST/contas/usuarios`; do
     zmprov ma  $user zimbraMailSieveScript "`cat $DEST/filtros/$user.filtros`";
-	"echo $user -- OK";
+	echo "$user -- OK";
 done
 	echo "+-------------------------------------------------+OK"
 
