@@ -1,0 +1,9 @@
+require ["fileinto", "copy", "reject", "tag", "flag", "variables", "log", "enotify", "envelope", "body", "ereject", "reject", "relational", "comparator-i;ascii-numeric"];
+
+# Avas - SPAM
+if anyof (header :contains ["subject"] "[*]") {
+    fileinto "Junk";
+    stop;
+}
+
+
