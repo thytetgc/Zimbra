@@ -18,6 +18,9 @@ if [ $LOCAL_USER != "root" ] ; then
 	exit
 fi
 
+#Variavel
+UsrZ="su - zimbra -c"
+
 echo "Download do Filtro - AVAS SPAM..."
 	echo
 cd /tmp/
@@ -27,15 +30,14 @@ wget --no-check-certificate --no-cache --no-cookies -N https://raw.githubusercon
 
 echo "Exportando lista de usuarios..."
 	echo
-su - zimbra -c 'zmprov -l gaa | grep "$DOMAIN" | tee -a /tmp/usuarios'
+$UsrZ 'zmprov -l gaa | tee -a /tmp/usuarios'
 	echo "+-------------------------------------------------+OK"
 	echo
 
 echo "Importando Filtros..."
 	echo
-su - zimbra -c 'for user in `cat /tmp/usuarios`; do zmprov ma  $user zimbraMailSieveScript "`cat /tmp/filtro-avas-spam`";
-	echo "$user -- OK";
-done'
+$UsrZ 'for user in $(zmprov -l gaa); do zmprov ma  $user zimbraMailSieveScript "`cat /tmp/filtro-avas-spam`"; echo "$user -- OK"; done'
+#$UsrZ 'for user in `cat /tmp/usuarios`; do zmprov ma  $user zimbraMailSieveScript "`cat /tmp/filtro-avas-spam`"; echo "$user -- OK"; done'
 	echo "+-------------------------------------------------+OK"
 	echo
 
