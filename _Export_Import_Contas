@@ -101,7 +101,7 @@ Exportar1() {
 	
 	echo "Exportando Contas..."
 	echo
-	rm -rf $DEST/contas/*
+	rm -rf $DEST/contas*
 	zmhostname > $DEST/server_old
 	zmprov gaaa | grep "$DOMAIN" | tee -a $DEST/contas/admins
 	zmprov -l gaa | grep "$DOMAIN" | tee -a $DEST/contas/usuarios
