@@ -31,7 +31,7 @@ Principal() {
      echo "+-------------------------------------------------+"
      echo "|           Utilitario para Zimbra                |"
      echo "+-------------------------------------------------+"
-     echo "| Exportar / Importar Contas do Zimbra    v1.0    |"
+     echo "| Exportar / Importar Contas do Zimbra    v1.1    |"
      echo "+-------------------------------------------------+"
      echo "| Escrito por:                                    |"
      echo "| Thiago Castro - www.hostlp.net                  |"
@@ -85,7 +85,7 @@ Exportar1() {
 	read DOMAIN
 	echo
 	cd /tmp/
-	DEST="zimbra/$DOMAIN/"
+	DEST="zimbra/$DOMAIN"
 	cp -rf $DEST zimbra/$DOMAIN-BKP-$(date "+%Y%m%d")
 	mkdir $DEST/dominio $DEST/contas $DEST/contatos $DEST/listas $DEST/alias $DEST/assinaturas $DEST/filtros -p
 	clear
@@ -101,7 +101,7 @@ Exportar1() {
 	
 	echo "Exportando Contas..."
 	echo
-	rm -rf $DEST/contas*
+	rm -rf $DEST/contas/*
 	zmhostname > $DEST/server_old
 	zmprov gaaa | grep "$DOMAIN" | tee -a $DEST/contas/admins
 	zmprov -l gaa | grep "$DOMAIN" | tee -a $DEST/contas/usuarios
@@ -178,7 +178,7 @@ Importar1() {
 	read DOMAIN
 	echo
 	cd /tmp/
-	DEST="zimbra/$DOMAIN/"
+	DEST="zimbra/$DOMAIN"
 #	mkdir $DEST/dominio $DEST/contas $DEST/contatos $DEST/listas $DEST/alias -p
 	chown zimbra:zimbra $DEST -R
 	clear
