@@ -198,6 +198,21 @@ for domain in `cat $DEST/dominio/dominio`; do zmprov cd $domain zimbraAuthMech z
 	echo "+-------------------------------------------------+OK"
 	echo
 
+	echo "Retirando da importação contas spam, ham, virus e galsync..."
+	echo
+find $DEST -type f -name '*' -exec sed -i '/spam/d' "{}" \;
+find $DEST -type f -name '*' -exec sed -i '/ham/d' "{}" \;
+find $DEST -type f -name '*' -exec sed -i '/virus/d' "{}" \;
+find $DEST -type f -name '*' -exec sed -i '/gal/d' "{}" \;
+find $DEST -type f -name '*' -exec sed -i '/admin/d' "{}" \;
+find $DEST -name 'spam.*' -exec rm {} \;
+find $DEST -name 'ham.*' -exec rm {} \;
+find $DEST -name 'virus.*' -exec rm {} \;
+find $DEST -name 'gal.*' -exec rm {} \;
+find $DEST -name 'admin.*' -exec rm {} \;
+	echo "+-------------------------------------------------+OK"
+	echo
+
 	echo "Importando Contas..."
 	echo
 #	echo -n "Digite o nome do Servidor antigo...: "
