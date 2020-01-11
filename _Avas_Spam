@@ -27,7 +27,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|       Utilitario para Zimbra com Avas  v1.0     |"
+    echo "|       Utilitario para Zimbra com Avas  v1.1     |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -65,21 +65,42 @@ UsrZ="su - zimbra -c"
 
 echo "Download do Filtro - AVAS SPAM..."
 	echo
-cd /tmp/
+	DEST="/tmp/`hostname`"
+	mkdir $DEST -p
+	cd $DEST
 wget --no-check-certificate --no-cache --no-cookies -N https://raw.githubusercontent.com/thytetgc/Zimbra/master/filtro-avas-spam 1&> /dev/null
 	echo "+-------------------------------------------------+OK"
 	echo
 
 echo "Exportando lista de usuarios..."
 	echo
-$UsrZ 'zmprov -l gaa | tee -a /tmp/usuarios'
+/opt/zimbra/bin/zmprov -l gaa | tee -a $DEST/usuarios
+	echo "+-------------------------------------------------+OK"
+	echo
+
+echo "Exportando Filtros..."
+	echo
+	mkdir $DEST/filtros/ -p
+for user in `cat $DEST/usuarios`; do
+/opt/zimbra/bin/zmprov ga $user zimbraMailSieveScript > /tmp/filtrostemp
+    sed -i -e "1d" /tmp/filtrostemp
+    sed 's/zimbraMailSieveScript: //g' /tmp/filtrostemp  > $DEST/filtros/$user.filtros
+    rm -f /tmp/filtrostemp
+    echo "$user -- OK"
+done 
+
+echo "Mesclando os dois filtros..."
+	echo
+	sed -i '/require/d' $DEST/filtro-avas-spam
+for user in $(/opt/zimbra/bin/zmprov -l gaa); do cat $DEST/filtro-avas-spam >> $DEST/filtros/$user.filtros ; done
+#for users in `cat $DEST/usuarios`; do cat $DEST/filtro-avas-spam >> $DEST/filtros/$user.filtros ; done
 	echo "+-------------------------------------------------+OK"
 	echo
 
 echo "Importando Filtros..."
 	echo
-$UsrZ 'for user in $(zmprov -l gaa); do zmprov ma  $user zimbraMailSieveScript "`cat /tmp/filtro-avas-spam`"; echo "$user -- OK"; done'
-#$UsrZ 'for user in `cat /tmp/usuarios`; do zmprov ma  $user zimbraMailSieveScript "`cat /tmp/filtro-avas-spam`"; echo "$user -- OK"; done'
+for user in $(/opt/zimbra/bin/zmprov -l gaa); do /opt/zimbra/bin/zmprov ma $user zimbraMailSieveScript "`cat $DEST/filtros/$user.filtros`"; echo "$user -- OK"; done
+#for user in `cat $DEST/usuarios`; do /opt/zimbra/bin/zmprov ma  $user zimbraMailSieveScript "`cat $DEST/filtros/$user.filtros`"; echo "$user -- OK"; done
 	echo "+-------------------------------------------------+OK"
 	echo
 
