@@ -27,7 +27,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra  v1.0          |"
+    echo "|           Utilitario para Zimbra  v1.1          |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -60,6 +60,7 @@ fi
 #Variavel
 UsrZ="su - zimbra -c"
 
+#Transforma em Kb Mb Gb e Tb
 function human_size {
 sum=$1
 
@@ -86,6 +87,7 @@ printf "%sb\n" $sum
 fi
 }
 
+#Gera os relatórios para cada dominio
 output="/tmp/accountusage"
 domain=$1
 sendto="thiago@hostlp.net"
@@ -100,16 +102,34 @@ user=`echo $line|cut -f1 -d " "`
 usage=`echo $line|cut -f2 -d " "`
 quota=`echo $line|cut -f3 -d " "`
 status=`/opt/zimbra/bin/zmprov ga $user | grep  ^zimbraAccountStatus | cut -f2 -d " "`
-lastlogind=`su - zimbra -c '/opt/zimbra/bin/zmaccts | grep '$user' '|tr -s '  ' | cut -f5 -d " "'' | cut -c1-8 | sed 's:\(....\)\(..\)\(.*\):\1/\2/\3:'`
-lastloginh=`su - zimbra -c '/opt/zimbra/bin/zmaccts | grep '$user' '|tr -s '  ' | cut -f5 -d " "'' | cut -c9-14 | sed 's:\(..\)\(..\)\(.*\):\1-\2-\3:' | sed 's/-/:/g'`
+lastlogind=`su - zimbra -c '/opt/zimbra/bin/zmaccts | grep 'admin@automar3r.com.br' '|tr -s '  ' | cut -f5 -d " "'' | cut -c1-8 | sed 's:\(....\)\(..\)\(.*\):\1/\2/\3:'`
+lastloginh=`su - zimbra -c '/opt/zimbra/bin/zmaccts | grep 'admin@automar3r.com.br' '|tr -s '  ' | cut -f5 -d " "'' | cut -c9-14 | sed 's:\(..\)\(..\)\(.*\):\1-\2-\3:' | sed 's/-/:/g'`
 imap=`/opt/zimbra/bin/zmprov ga $user | grep zimbraImapEnabled | cut -f2 -d " " | sed 's/TRUE/Ativado/g' | sed 's/FALSE/Desativado/g'`
+#Forma 1 de gerar o relatório
 echo "$user |Usado: $(human_size $usage) - Quota: $(human_size $quota)| |Status - $status| |Imap - $imap| |Ultimo Login: $lastlogind - $lastloginh" >> $output
+#Forma 2 de gerar o relatório
 #echo "$user |Quota: `expr $usage / 1024 / 1024`Mb - `expr $quota / 1024 / 1024`Mb| |Status - $status| |Imap - $imap|" >> $output
+#Forma 3 de gerar o relatório
 #all_accounts=`/opt/zimbra/bin/zmprov -l gaa`; for account in $all_accounts; do mbox_size=`/opt/zimbra/bin/zmmailbox -z -m $account gms`; echo "$account |Quota: $mbox_size |Status - $status| |Imap - $imap|" >> $output; done ;
+#Apaga o relatório se estiver vazio
+find $output -type f -empty | xargs -n1 rm -f 1&> /dev/null
 done
 
+#Envia e-mail com o relatório, somente se houver o arquivo com as informações
+TEM_INFO=''
+cat /tmp/accountusage > /tmp/accountusage.tmp
+if egrep -q "$TEM_INFO" /tmp/accountusage.tmp
+then
 
+#Tem o arquivo com informações, então envia por e-mail
 cat $output | mail $sendto -s "Relatório de contas - $domain"
-
+fi
 
 echo "[`date`] ==== Fim de rotina..."
+
+#https://brunoizidorio.com.br/script-listar-usuarios-e-suas-cotas-no-zimbra/
+#https://wiki.zimbra.com/wiki/Get_all_user%27s_mailbox_size_from_CLI
+#https://wiki.zimbra.com/wiki/Mailbox_usage_report
+#https://wiki.zimbra.com/wiki/Getting_All_Users_Quota_Data
+#https://wiki.zimbra.com/wiki/Quota_Warning_Script
+#https://wiki.zimbra.com/wiki/Change_the_recipient_of_the_%22daily_mail_report%22
