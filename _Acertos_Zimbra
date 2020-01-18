@@ -405,11 +405,13 @@ echo "Aplicando Spell em pt_BR"
 $UsrZ 'zmprov ms `zmhostname` zimbraSpellAvailableDictionary pt_BR'
 	 echo "+-------------------------------------------------+OK"
 
-echo "Maximo 30 dias de visiilidade da lixeira para usuario final"
+#Aplicando 30 dias de visibilidade de reuperação da lixeira
+echo "Aplicando 30 dias de visibilidade de reuperação da lixeira"
 $UsrZ 'zmprov mc default zimbraDumpsterUserVisibleAge 30d'
 	 echo "+-------------------------------------------------+OK"
 
-echo "Ajustando o tempo de vida dos e-mails (0 = ILIMITADO / Padrão HOSTLP 7200)"
+#Aplicando quanto tempo em dias armazenar os e-mails mais antigos
+echo "Aplicando quanto tempo em dias armazenar os e-mails mais antigos (0 = ILIMITADO / Padrão HOSTLP 7200)"
 echo -n "Digite em dias o tempo de vida dos e-mails do Dominio: "
 read LIFETIME
 $UsrZ 'zmprov mc default zimbraMailMessageLifetime "'$LIFETIME'"'
