@@ -27,7 +27,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra                |"
+    echo "|           Utilitario para Zimbra  v1.5          |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -146,13 +146,15 @@ echo postsuper -d ALL > /sbin/del-mail ; chmod +x /sbin/del-mail
 echo tail -f /var/log/mail.log > /sbin/maillog ; chmod +x /sbin/maillog
 	 echo "+-------------------------------------------------+OK"
 
-#Aumentando o limite do tamanho de anexos (10485760 = 10mb,20971520 = 20mb,31457280 = 30mb,41943040 = 40mb,52428800 = 50mb)
+#Aumentando o limite do tamanho de anexos
 echo "Aumentando o limite do tamanhoa de anexos -> 10mb = 10485760 / 20mb = 20971520 / 30mb = 31457280 / 40mb = 41943040 / 50mb = 52428800"
 echo -n "Limitar anexos em...: "
 read LANX
 $UsrZ 'zmprov modifyConfig zimbraMailContentMaxSize '$LANX''
 $UsrZ 'zmprov modifyConfig zimbraImapMaxRequestSize '$LANX''
 $UsrZ 'zmprov modifyConfig zimbraMtaMaxMessageSize '$LANX''
+$UsrZ 'zmprov modifyConfig zimbraFileUploadMaxSize '$LANX''
+$UsrZ 'zmprov modifyConfig zimbraFileUploadMaxSizePerFile '$LANX''
 	 echo "+-------------------------------------------------+OK"
 
 #Acertando os banners
@@ -163,22 +165,33 @@ $UsrZ 'zmprov -l mcf zimbraMtaMyHostname `hostname --fqdn`'
 
 #Alterando logos de todos os dominios
 echo "Alterando logos de todos os dominios"
-$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraSkinLogoURL http://site.hostlp.com.br; done'
-$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraSkinLogoLoginBanner http://site.hostlp.com.br/imagens/zimbra/Logotipo_Novo_130x58.png; done'
-$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraSkinLogoAppBanner http://site.hostlp.com.br/imagens/zimbra/Logotipo_Novo_80x36.png; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraSkinLogoURL https://site.hostlp.com.br; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraSkinLogoLoginBanner https://site.hostlp.com.br/imagens/zimbra/Logotipo_Novo_130x58.png; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraSkinLogoAppBanner https://site.hostlp.com.br/imagens/zimbra/Logotipo_Novo_80x36.png; done'
 	 echo "+-------------------------------------------------+OK"
 
-#Ativando Memcached, Imapproxy e Proxy
-echo "Ativando Memcached, Imapproxy e Proxy - Sim/Nao"
+#Ativando Memcached
+echo "Ativando Memcached - Sim/Nao"
 read CONFIRMA
 case $CONFIRMA in
 s|S|Sim|sim)
 $UsrZ 'zmprov -l ms `zmhostname` +zimbraServiceEnabled memcached'
+		;;
+n|N|Nao|nao)
+$UsrZ 'zmprov -l ms `zmhostname` -zimbraServiceEnabled memcached'
+		;;
+*) echo  "Opcao Invalida" ;; esac
+	 echo "+-------------------------------------------------+OK"
+
+#Ativando Imapproxy e Proxy
+echo "Ativando Imapproxy e Proxy - Sim/Nao"
+read CONFIRMA
+case $CONFIRMA in
+s|S|Sim|sim)
 $UsrZ 'zmprov -l ms `zmhostname` +zimbraServiceEnabled imapproxy'
 $UsrZ 'zmprov -l ms `zmhostname` +zimbraServiceEnabled proxy'
 		;;
 n|N|Nao|nao)
-$UsrZ 'zmprov -l ms `zmhostname` -zimbraServiceEnabled memcached'
 $UsrZ 'zmprov -l ms `zmhostname` -zimbraServiceEnabled imapproxy'
 $UsrZ 'zmprov -l ms `zmhostname` -zimbraServiceEnabled proxy'
 		;;
@@ -236,6 +249,7 @@ $UsrZ 'zmprov mcf +zimbraMtaRestriction "reject_rbl_client dnsbl.sorbs.net"'
 $UsrZ 'zmprov mcf +zimbraMtaRestriction "reject_rbl_client b.barracudacentral.org"'
 $UsrZ 'zmprov mcf +zimbraMtaRestriction "reject_rbl_client psbl.surriel.com"'
 $UsrZ 'zmprov mcf +zimbraMtaRestriction "reject_rbl_client cbl.abuseat.org"'
+$UsrZ 'zmprov mcf +zimbraMtaRestriction "reject_rbl_client dnsbl.spfbl.net"'
 $UsrZ 'zmprov mcf zimbraMtaPostscreenDnsblSites 'b.barracudacentral.org=127.0.0.2*7' zimbraMtaPostscreenDnsblSites 'dnsbl.sorbs.net=127.0.0.10*8' zimbraMtaPostscreenDnsblSites 'dnsbl.sorbs.net=127.0.0.5*6' zimbraMtaPostscreenDnsblSites 'dnsbl.sorbs.net=127.0.0.7*3' zimbraMtaPostscreenDnsblSites 'dnsbl.sorbs.net=127.0.0.8*2' zimbraMtaPostscreenDnsblSites 'dnsbl.sorbs.net=127.0.0.6*2' zimbraMtaPostscreenDnsblSites 'dnsbl.sorbs.net=127.0.0.9*2''
 $UsrZ 'zmprov mcf zimbraMtaPostscreenDnsblAction enforce'
 $UsrZ 'zmprov mcf zimbraMtaPostscreenGreetAction enforce'
@@ -253,6 +267,22 @@ $UsrZ 'zmprov -l ms `zmhostname` +zimbraServiceEnabled amavis'
 $UsrZ 'zmprov -l ms `zmhostname` +zimbraServiceEnabled antivirus'
 $UsrZ 'zmprov mcf zimbraVirusDefinitionsUpdateFrequency 2h'
 $UsrZ 'zmprov mcf zimbraAmavisLogLevel 2'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender $dominios; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender hostlp.com.br; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender hostlp.net; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender hostlp.cloud; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender microsoft.com; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender gmail.com; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender hotmail.com; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender account.microsoft.com; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender accountprotection.microsoft.com; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender accounts.google.com; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender fazenda.sp.gov.br; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender google.com; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender mercadolivre.com; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender mercadopago.com; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender microsoft.com; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender outlook.com; done'
     echo "+-------------------------------------------------+OK"
         ;;
 n|N|Nao|nao)
@@ -303,7 +333,26 @@ $UsrZ 'zmlocalconfig -e postfix_smtp_tls_security_level=may'
 #echo "Acertando problema no webmail com anexos"
 #$UsrZ 'zmlocalconfig -e zimbra_use_owasp_html_sanitizer=FALSE'
 #	 echo "+-------------------------------------------------+OK"
+
+#Aplicando regra de falso mail from
+echo "Aplicando regra de falso mail from"
+$UsrZ 'zmprov mcf zimbraMtaSmtpdRejectUnlistedRecipient yes'
+$UsrZ 'zmprov mcf zimbraMtaSmtpdRejectUnlistedSender yes'
+	 echo "+-------------------------------------------------+OK"
+#https://wiki.zimbra.com/wiki/Rejecting_false_%22mail_from%22_addresses
+
+#Aplicando regra usuario verdadeiro de FROM e SASL
+echo "Aplicando regra usuario verdadeiro de FROM e SASL"
+$UsrZ 'zmprov mcf zimbraMtaSmtpdSenderLoginMaps  proxy:ldap:/opt/zimbra/conf/ldap-slm.cf +zimbraMtaSmtpdSenderRestrictions reject_authenticated_sender_login_mismatch'
+sed -i 's/^permit_mynetworks/permit_mynetworks, reject_sender_login_mismatch/g' /opt/zimbra/conf/zmconfigd/smtpd_sender_restrictions.cf
+	 echo "+-------------------------------------------------+OK"
+#https://wiki.zimbra.com/wiki/Enforcing_a_match_between_FROM_address_and_sasl_username_8.5
 	 
+#Alterando CharSet de todos COS
+echo "Alterando CharSet de todos COS"
+$UsrZ 'for cos in `zmprov gac`; do zmprov mc $cos zimbraPrefMailDefaultCharset UTF-8; done'
+	 echo "+-------------------------------------------------+OK"
+
 #Aplicando politica de DOSFilter
 echo "Aplicando politica de DOSFilter"
 $UsrZ 'zmprov mcf zimbraHttpDosFilterDelayMillis 20'
@@ -316,40 +365,69 @@ $UsrZ 'zmprov mcf zimbraInvalidLoginFilterReinstateIpTaskIntervalInMin 5'
 #Aplicando Tunning de Conexões
 echo "Aplicando Tunning de Conexões"
 $UsrZ 'zmprov ms `zmhostname` zimbraHttpNumThreads 500'
-$UsrZ 'zmprov ms `zmhostname` zimbraHttpSSLNumThreads 100' 1&> /dev/null
 $UsrZ 'zmprov ms `zmhostname` zimbraPop3NumThreads 200'
 $UsrZ 'zmprov ms `zmhostname` zimbraPop3MaxConnections 400'
 $UsrZ 'zmprov ms `zmhostname` zimbraImapNumThreads 2000'
 $UsrZ 'zmprov ms `zmhostname` zimbraImapMaxConnections 2000'
 $UsrZ 'zmprov mcf zimbraHttpNumThreads 500'
-$UsrZ 'zmprov mcf zimbraHttpSSLNumThreads 100' 1&> /dev/null
 $UsrZ 'zmprov mcf zimbraPop3NumThreads 200'
 $UsrZ 'zmprov mcf zimbraPop3MaxConnections 400'
 $UsrZ 'zmprov mcf zimbraImapNumThreads 2000'
 $UsrZ 'zmprov mcf zimbraImapMaxConnections 2000'
 	 echo "+-------------------------------------------------+OK"
 
-#Reinicia serviços
-#echo "Reinicia serviços"
-#$UsrZ 'zmmemcachedctl stop'
-#$UsrZ 'zmproxyctl stop'
-#$UsrZ 'zmamavisdctl stop'
-#$UsrZ 'zmantispamctl stop'
-#$UsrZ 'zmantivirusctl stop'
-#$UsrZ 'zmmailboxdctl stop'
-#$UsrZ 'zmmemcachedctl start'
-#$UsrZ 'zmproxyctl start'
-#$UsrZ 'zmamavisdctl start'
-#$UsrZ 'zmantispamctl start'
-#$UsrZ 'zmantivirusctl start'
-#$UsrZ 'zmmailboxdctl start'
+#Aplicando Tunning do Java servidor com 16GB Ram
+echo "Aplicando Tunning do Java servidor com 16GB Ram"
+$UsrZ 'zmlocalconfig -e mailboxd_java_heap_size=4096'
+$UsrZ 'zmlocalconfig -e mailboxd_java_heap_memory_percent=25'
+$UsrZ 'zmlocalconfig -e mailboxd_java_heap_new_size_percent=25'
+$UsrZ 'zmlocalconfig -e zimbra_require_interprocess_security=0'
+	 echo "+-------------------------------------------------+OK"
+
+#Aplicar Tunning no MySQL
+echo "Aplicar Tunning no MySQL..."
+echo "Não esqueça de alterar o arquivo /opt/zimbra/conf/my.cnf no parametro innodb_buffer_pool_size conforme RAM disponivel"
+echo "32GB - 13743895360  /  16GB - 6871947680  /  8GB - 3435973840"
+	echo "Aperte <ENTER> para continuar e começar..."
+	read 
+	 echo "+-------------------------------------------------+OK"
+
+#Aplicando Tunning de LMTP
+echo "Aplicando Tunning de LMTP"
+$UsrZ 'zmprov ms `zmhostname` zimbraLmtpNumThreads 40'
+$UsrZ 'zmprov mcf zimbraLmtpNumThreads 40'
+$UsrZ 'zmlocalconfig -e postfix_lmtp_destination_concurrency_limit=20'
+	 echo "+-------------------------------------------------+OK"
+#https://wiki.zimbra.com/wiki/Performance_Tuning_Guidelines_for_Large_Deployments
+
+#Aplicando Spell em pt_BR
+echo "Aplicando Spell em pt_BR"
+$UsrZ 'zmprov ms `zmhostname` zimbraSpellAvailableDictionary pt_BR'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Maximo 30 dias de visiilidade da lixeira para usuario final"
+$UsrZ 'zmprov mc default zimbraDumpsterUserVisibleAge 30d'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Ajustando o tempo de vida dos e-mails (0 = ILIMITADO / Padrão HOSTLP 7200)"
+echo -n "Digite em dias o tempo de vida dos e-mails do Dominio: "
+read LIFETIME
+$UsrZ 'zmprov mc default zimbraMailMessageLifetime "'$LIFETIME'"'
+$UsrZ 'zmprov ms `zmhostname` zimbraMailPurgeSleepInterval 1m'
+	 echo "+-------------------------------------------------+OK"
+
+#Reescreve alterações
+echo "Reescrevendo alterações"
+$UsrZ 'zmmtactl restart'
+$UsrZ 'zmconfigdctl restart'
+	 echo "+-------------------------------------------------+OK"
 
 #Arrumar permissões de pastas
 echo "Arrumar permissões de pastas - Sim/Nao"
 read CONFIRMA
 case $CONFIRMA in
 s|S|Sim|sim)
-$UsrZ '/opt/zimbra/libexec/zmfixperms -extended'
+/opt/zimbra/libexec/zmfixperms -extended
 		;;
 n|N|Nao|nao)
        ;;
