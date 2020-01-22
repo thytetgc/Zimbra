@@ -27,7 +27,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|       Utilitario para Zimbra com Avas  v1.1     |"
+    echo "|       Utilitario para Zimbra com Avas  v1.2     |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -88,10 +88,29 @@ for user in `cat $DEST/usuarios`; do
     rm -f /tmp/filtrostemp
     echo "$user -- OK"
 done 
+	echo "+-------------------------------------------------+OK"
+	echo
+
+echo "Retirando da importação contas spam, ham, virus e galsync..."
+	echo
+find $DEST -type f -name '*' -exec sed -i '/spam/d' "{}" \;
+find $DEST -type f -name '*' -exec sed -i '/ham/d' "{}" \;
+find $DEST -type f -name '*' -exec sed -i '/virus/d' "{}" \;
+find $DEST -type f -name '*' -exec sed -i '/gal/d' "{}" \;
+find $DEST -type f -name '*' -exec sed -i '/admin/d' "{}" \;
+find $DEST -name 'spam.*' -exec rm {} \;
+find $DEST -name 'ham.*' -exec rm {} \;
+find $DEST -name 'virus.*' -exec rm {} \;
+find $DEST -name 'gal.*' -exec rm {} \;
+find $DEST -name 'admin.*' -exec rm {} \;
+	echo "+-------------------------------------------------+OK"
+	echo
 
 echo "Mesclando os dois filtros..."
 	echo
 	sed -i '/require/d' $DEST/filtro-avas-spam
+	find $DEST/filtros -type f -name '*' -exec sed -i '/# Avas/{/}/{s/# Avas.*}//;t};:a;/}/!{N;s/\n//;ta;};s/# Avas.*}/\n/;}' "{}" \;
+	find $DEST/filtros -type f -name '*' -exec sed -i '/^$/d' "{}" \;
 for user in $(/opt/zimbra/bin/zmprov -l gaa); do cat $DEST/filtro-avas-spam >> $DEST/filtros/$user.filtros ; done
 #for users in `cat $DEST/usuarios`; do cat $DEST/filtro-avas-spam >> $DEST/filtros/$user.filtros ; done
 	echo "+-------------------------------------------------+OK"
