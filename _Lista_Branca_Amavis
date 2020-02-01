@@ -1,0 +1,127 @@
+#!/bin/bash
+#+----------------GERANDO LOG-----------------------+OK"
+SCRIPT=`basename $0`
+LOG=`echo /Scripts_Zimbra/$SCRIPT.log | sed s/'.sh'/'.log'/g`
+exec &> >(tee -a "$LOG")
+echo "[`date`] ==== Inicio de rotina..."
+#+----------------GERANDO LOG-----------------------+OK"
+
+clear
+
+#Checa se o usuario é root
+LOCAL_USER=`id -u -n`
+
+if [ $LOCAL_USER != "root" ] ; then
+	echo "     Rodar como usuario root"
+	echo "     saindo..."
+	echo ""
+	exit
+fi
+	dir="Diretorio Atual		 : `pwd`"
+	hostname="Hostname			 : `hostname --fqdn`"
+	ip="IP						 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
+    versaoso="Versao S.O.		 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	release="Release			 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	kernel="Kernel				 : `uname -r`"
+	arquitetura="Arquitetura	 : `uname -m`"
+	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
+    echo "+-------------------------------------------------+"
+    echo "|     Utilitario para Zimbra com Amavis  v1.3     |"
+    echo "+-------------------------------------------------+"
+    echo "+-------------------------------------------------+"
+    echo "| Escrito por:                                    |"
+    echo "| Thiago Castro - www.hostlp.net                  |"
+    echo "+-------------------------------------------------+"
+    echo
+    echo $dir
+	echo "+-------------------------------------------------+"
+	echo $hostname
+	echo "+-------------------------------------------------+"
+	echo $ip
+	echo "+-------------------------------------------------+"
+	echo $versaoso
+	echo "+-------------------------------------------------+"
+	echo $release
+	echo "+-------------------------------------------------+"
+	echo $codename
+	echo "+-------------------------------------------------+"
+    echo $kernel
+	echo "+-------------------------------------------------+"
+    echo $arquitetura
+	echo "+-------------------------------------------------+"
+	echo $versaozimbra
+	echo "+-------------------------------------------------+"
+	echo
+	echo "Aperte <ENTER> para continuar e começar..."
+	read 
+	sleep 5
+	echo
+	echo "==================EXECUTANDO======================="
+	echo
+
+# lista de dominios para importar
+listaW=/Scripts_Zimbra/listaW_dominios
+listaB=/Scripts_Zimbra/listaB_dominios
+mv -rf $listaW /tmp/ 1&> /dev/null
+mv -rf $listaB /tmp/ 1&> /dev/null
+
+echo "Download dos dominios Whitelist..."
+wget --no-check-certificate --no-cache --no-cookies -N https://raw.githubusercontent.com/thytetgc/listas/master/whitelist -O $listaW 1&> /dev/null
+	 echo "+-------------------------------------------------+OK"
+
+echo "Listando os Dominios locais..."
+/opt/zimbra/bin/zmprov gad >> $listaW
+	 echo "+-------------------------------------------------+OK"
+
+echo "Excluindo Whitelist atual..."
+for dominios in $(/opt/zimbra/bin/zmprov gad); do /opt/zimbra/bin/zmprov md $dominios amaviswhitelistsender ""; done
+	 echo "+-------------------------------------------------+OK"
+
+echo "Adicionando lista branca ao Amavis"
+# Separador da lista por ":"
+while IFS=: read -r dominio
+    do
+
+# Adiciona dominio da lista
+    for dominios in $(/opt/zimbra/bin/zmprov gad); do /opt/zimbra/bin/zmprov md $dominios +amaviswhitelistsender $dominio; done
+
+# Gera Log da criação
+    echo "$dominio" >> /Scripts_Zimbra/log_de_dominios_importados.txt
+
+done < "$listaW"
+	 echo "+-------------------------------------------------+OK"
+
+echo "Lista de dominios adicionados a lista branca"
+/opt/zimbra/bin/zmprov gd `hostname -d` amaviswhitelistsender
+	 echo "+-------------------------------------------------+OK"
+
+########################################################################################################################################
+
+echo "Download dos dominios Blacklist..."
+wget --no-check-certificate --no-cache --no-cookies -N https://raw.githubusercontent.com/thytetgc/listas/master/blacklist -O $listaB 1&> /dev/null
+	 echo "+-------------------------------------------------+OK"
+
+echo "Excluindo Blacklist atual..."
+for dominios in $(/opt/zimbra/bin/zmprov gad); do /opt/zimbra/bin/zmprov md $dominios amavisblacklistsender ""; done
+	 echo "+-------------------------------------------------+OK"
+
+echo "Adicionando lista negra ao Amavis"
+# Separador da lista por ":"
+while IFS=: read -r dominio
+    do
+
+# Adiciona dominio da lista
+    for dominios in $(/opt/zimbra/bin/zmprov gad); do /opt/zimbra/bin/zmprov md $dominios +amavisblacklistsender $dominio; done
+
+# Gera Log da criação
+    echo "$dominio" >> /Scripts_Zimbra/log_de_dominios_importados.txt
+
+done < "$listaB"
+	 echo "+-------------------------------------------------+OK"
+
+echo "Lista de dominios adicionados a lista negra"
+/opt/zimbra/bin/zmprov gd `hostname -d` amavisblacklistsender
+	 echo "+-------------------------------------------------+OK"
+
+echo "[`date`] ==== Fim de rotina..."
