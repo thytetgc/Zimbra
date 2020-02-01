@@ -1,13 +1,15 @@
 #!/bin/bash
 clear
 
-echo [`date +'%d.%m.%Y %H:%M'`] Iniciando Backup ...
+echo "[`date +'%d.%m.%Y %H:%M'`] Iniciando Backup ..."
          echo "+-------------------------------------------------+OK"
-
-echo [`date +'%d.%m.%Y %H:%M'`] Exportar configuração atual [1/4] ...
+         echo
+         
+echo "[`date +'%d.%m.%Y %H:%M'`] Exportar configuração atual [1/4] ..."
 su - zimbra -c '/Scripts_Zimbra/_Export_Dados'
          echo "+-------------------------------------------------+OK"
-
+         echo
+         
 # Diretórios para fazer backup, /etc /root /var
 source='/opt/zimbra/backup/'
 
@@ -36,19 +38,23 @@ function f_delFiles()
   rm $1/"`hostname -a`"-backup$loeschdatum.*
 }
 
-echo [`date +'%d.%m.%Y %H:%M'`] Exclundo arquivos em $backup, com mais de 7 dias [2/4] ...
+echo "[`date +'%d.%m.%Y %H:%M'`] Exclundo arquivos em $backup, com mais de 7 dias [2/4] ..."
 f_delFiles $backup
          echo "+-------------------------------------------------+OK"
-
+         echo
+         
 echo [`date +'%d.%m.%Y %H:%M'`] Salve $source em $dateiname [3/4] ...
 tar -Pcf $dateinametar $source
 zip -P $senha -r $dateinamezip $dateinametar
 rm $dateinametar
          echo "+-------------------------------------------------+OK"
-
-echo [`date +'%d.%m.%Y %H:%M'`] Sincronizar com armazenamento online [4/4] ...
+         echo
+         
+echo "[`date +'%d.%m.%Y %H:%M'`] Sincronizar com armazenamento online [4/4] ..."
 bash /Scripts/upload.sh
          echo "+-------------------------------------------------+OK"
-
-echo [`date +'%d.%m.%Y %H:%M'`] Pronto!
+         echo
+         
+echo "[`date +'%d.%m.%Y %H:%M'`] Pronto!"
          echo "+-------------------------------------------------+OK"
+         echo
