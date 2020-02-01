@@ -5,7 +5,7 @@ echo [`date +'%d.%m.%Y %H:%M'`] Iniciando Backup ...
          echo "+-------------------------------------------------+OK"
 
 echo [`date +'%d.%m.%Y %H:%M'`] Exportar configuração atual [1/4] ...
-su - zimbra -c '/Scripts/_Export_Dados'
+su - zimbra -c '/Scripts_Zimbra/_Export_Dados'
          echo "+-------------------------------------------------+OK"
 
 # Diretórios para fazer backup, /etc /root /var
