@@ -33,7 +33,7 @@ Principal() {
      echo "+-------------------------------------------------+"
      echo "|           Utilitario para Zimbra                |"
      echo "+-------------------------------------------------+"
-     echo "| Exportar / Importar Contas do Zimbra    v1.4    |"
+     echo "| Exportar / Importar Contas do Zimbra    v1.5    |"
      echo "+-------------------------------------------------+"
      echo "| Escrito por:                                    |"
      echo "| Thiago Castro - www.hostlp.net                  |"
@@ -60,9 +60,9 @@ Principal() {
 	 echo
      echo
      echo "Opcoes:"
-     echo "1. Exportar COS, Dominios, Contas, Contatos, Listas, Alias, Assinaturas e Filtros"
+     echo "1. Exportar COS, Dominios, Contas, Contatos, Agendas, Listas, Alias, Assinaturas e Filtros"
 	 echo
-	 echo "2. Importar COS Dominios, Contas, Contatos, Listas, Alias, Assinaturas e Filtros"
+	 echo "2. Importar COS, Dominios, Contas, Contatos, Agendas, Listas, Alias, Assinaturas e Filtros"
 	 echo
      echo "3. Sair"
 	 echo
@@ -145,6 +145,15 @@ zmprov -l gaa "$DOMAIN" | while read conta; do zmmailbox -z -m $conta gru /Conta
 	echo "+-------------------------------------------------+OK"
 	echo
 
+	echo "Exportando Agendas..."
+	echo
+	cd $DEST/agendas
+for user in $($zmprov -l gaa | sort); do
+        $zmmailbox  -z -m $user getRestURL "/calendar?fmt=ics" > $DEST/agendas/$user.ics
+done
+	echo "+-------------------------------------------------+OK"
+	echo
+	
 	echo "Exportando Listas de Distribuição..."
 	echo
 zmprov gadl "$DOMAIN" | tee -a $DEST/listas/listas
@@ -275,6 +284,14 @@ n|N|Nao|nao)
 	echo
 for conta in $(ls $DEST/contatos |awk -F ".csv" '{print $1}') ; do zmmailbox -z -m $conta pru /Contacts $DEST/contatos/$conta.csv ;done
 #zmprov -l gaa "$DOMAIN" | while read conta; do zmmailbox -z -m $conta pru /Contacts $DEST/contatos/$conta.csv ; done
+	echo "+-------------------------------------------------+OK"
+	echo
+
+	echo "Importando Agendas..."
+	echo
+	cd $DEST/agendas
+	find . -type f -size -95c -exec rm -f {} \;
+	for user in $(ls |awk -F ".ics" '{print $1}') ; do zmmailbox -z -m $user pru /Calendar $DEST/agendas/$user.ics ;done
 	echo "+-------------------------------------------------+OK"
 	echo
 
