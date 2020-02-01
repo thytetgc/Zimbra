@@ -33,7 +33,7 @@ fi
      echo "+-------------------------------------------------+"
      echo "|           Utilitario para Zimbra                |"
      echo "+-------------------------------------------------+"
-     echo "| Exportar / Importar Contas do Zimbra    v1.4    |"
+     echo "| Exportar / Importar Contas do Zimbra    v1.5    |"
      echo "+-------------------------------------------------+"
      echo "| Escrito por:                                    |"
      echo "| Thiago Castro - www.hostlp.net                  |"
@@ -74,7 +74,7 @@ fi
 	DOMAIN=`hostname`
 	DEST="/opt/zimbra/backup/$DOMAIN"
 	cp -rf $DEST /tmp/$DOMAIN-BKP-$(date "+%Y%m%d")
-	mkdir $DEST/cos $DEST/dominio $DEST/contas $DEST/contatos $DEST/listas $DEST/alias $DEST/assinaturas $DEST/filtros -p
+	mkdir $DEST/cos $DEST/dominio $DEST/contas $DEST/contatos $DEST/agendas $DEST/listas $DEST/alias $DEST/assinaturas $DEST/filtros -p
 	chown zimbra:zimbra $DEST -R
 	clear
 	
@@ -109,6 +109,15 @@ $zmprov -l gaa | while read conta; do $zmmailbox -z -m $conta gru /Contacts > $D
 	echo "+-------------------------------------------------+OK"
 	echo
 
+	echo "Exportando Agendas..."
+	echo
+	cd $DEST/agendas
+for user in $($zmprov -l gaa | sort); do
+        $zmmailbox  -z -m $user getRestURL "/calendar?fmt=ics" > $DEST/agendas/$user.ics
+done
+	echo "+-------------------------------------------------+OK"
+	echo
+	
 	echo "Exportando Listas de Distribuição..."
 	echo
 $zmprov gadl | tee -a $DEST/listas/listas
