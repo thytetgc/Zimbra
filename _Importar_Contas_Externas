@@ -1,0 +1,24 @@
+#!/bin/bash
+zmprov="/opt/zimbra/bin/zmprov";
+
+# Limpa tela
+clear
+
+# Lista de e-mails para importar
+# user@dominio.com.br:123456:user:group
+lista=/Scripts_Zimbra/lista_emails
+
+# Separador da lista por ":"
+while IFS=: read -r email senha nome snome
+	do
+	
+# Adiciona e-mail da lista
+# E-MAIL@supportweb.com.br:SENHA:NOME:SOBRENOME
+	$zmprov ca $email $senha givenName "$nome" sn "$snome" displayName "$nome $snome"
+	
+# Gera Log da criação
+	echo "Senha : $senha ==> Mail : $email ==> Nome : $nome ==> Sobrenome : $snome" >> /Scripts_Zimbra/log_de_contas_importadas.txt
+	
+# Marca para alterar a senha no primeiro Login
+	for each in `$zmprov -l gaa | grep $email`; do $zmprov ma $each zimbraPasswordMustChange TRUE; done
+done < "$lista"
