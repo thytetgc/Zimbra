@@ -1,0 +1,123 @@
+#!/bin/bash
+# Versao 2.3 em 07/10/2018
+# Versao 3.0 em 26/06/2019
+#######################################################
+
+#+----------------GERANDO LOG-----------------------+OK"
+SCRIPT=`basename $0`
+LOG=`echo /opt/zimbra/$SCRIPT.log | sed s/'.sh'/'.log'/g`
+exec &> >(tee -a "$LOG")
+echo "[`date`] ==== Inicio de rotina..."
+#+----------------GERANDO LOG-----------------------+OK"
+
+clear
+#Checa se o usuario é zimbra
+LOCAL_USER=`id -u -n`
+
+if [ $LOCAL_USER != "root" ] ; then
+	echo "     Rodar como usuario root"
+	echo "     saindo..."
+	echo ""
+	exit
+fi
+Principal() {
+	 clear
+     dir="Diretorio Atual		 : `pwd`"
+	 hostname="Hostname			 : `hostname --fqdn`"
+	 ip="IP						 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
+     versaoso="Versao S.O.		 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	 release="Release			 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	 codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	 kernel="Kernel				 : `uname -r`"
+	 arquitetura="Arquitetura	 : `uname -m`"
+	 versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
+     echo "+-------------------------------------------------+"
+     echo "|      Utilitario Backup para Zimbra  v1.1        |"
+     echo "+-------------------------------------------------+"
+     echo "| Exportar / Importar Dados do Zimbra             |"
+     echo "+-------------------------------------------------+"
+     echo "| Escrito por:                                    |"
+     echo "| Thiago Castro - www.hostlp.net                  |"
+     echo "+-------------------------------------------------+"
+     echo
+     echo $dir
+	 echo "+-------------------------------------------------+"
+	 echo $hostname
+	 echo "+-------------------------------------------------+"
+	 echo $ip
+	 echo "+-------------------------------------------------+"
+	 echo $versaoso
+	 echo "+-------------------------------------------------+"
+	 echo $release
+	 echo "+-------------------------------------------------+"
+	 echo $codename
+	 echo "+-------------------------------------------------+"
+     echo $kernel
+	 echo "+-------------------------------------------------+"
+     echo $arquitetura
+	 echo "+-------------------------------------------------+"
+	 echo $versaozimbra
+	 echo "+-------------------------------------------------+"
+	 echo
+     echo
+     echo "Opcoes:"
+     echo "1. Exportar Dominio Inteiro"
+	 echo "2. Exportar uma unica Conta"
+	 echo
+     echo "3. Sair"
+	 echo
+	 echo
+     echo -n "Entre com a opcao desejada => "
+     read opcao
+     echo
+     case $opcao in
+        1) ExDomain ;;
+		2) ExUser ;;
+        3) exit ;;
+        *) "Opcao desconhecida." ; echo ; Principal ;;
+     esac
+}
+
+ExDomain() {
+#Variavel
+UsrZ="su - zimbra -c"
+ZmmB="/opt/zimbra/bin/zmmailbox"
+
+echo -n "Digite o dominio para backup: "
+read DOMINIO
+
+$UsrZ "zmprov -l gaa $DOMINIO > /tmp/lista_emails.txt"
+mkdir -p /opt/backup/"$DOMINIO"-`date +%d-%m-%y`
+chown zimbra.zimbra /opt/backup/"$DOMINIO"-`date +%d-%m-%y`
+
+for domain in `cat /tmp/lista_emails.txt`; do
+$UsrZ "$ZmmB -z -m $domain getRestURL "//?fmt=tgz" > /opt/backup/"$DOMINIO"-`date +%d-%m-%y`/$domain.tgz"
+done
+    echo "+-------------------------------------------------+OK"
+	echo
+    echo "Pressione qualquer tecla para continuar..."
+    read msg
+    Principal
+}
+  
+ExUser() {
+#Variavel
+UsrZ="su - zimbra -c"
+ZmmB="/opt/zimbra/bin/zmmailbox"
+
+echo -n "Digite o e-mail para backup: "
+read EMAIL
+
+mkdir -p /opt/backup/"$EMAIL"-`date +%d-%m-%y`
+chown zimbra.zimbra /opt/backup/"$EMAIL"-`date +%d-%m-%y`
+
+$UsrZ "$ZmmB -z -m $EMAIL getRestURL "//?fmt=tgz" > /opt/backup/"$EMAIL"-`date +%d-%m-%y`/$EMAIL.tgz"
+    echo "+-------------------------------------------------+OK"
+	echo
+    echo "Pressione qualquer tecla para continuar..."
+    read msg
+    Principal
+}
+Principal
+
+echo "[`date`] ==== Fim de rotina..."
