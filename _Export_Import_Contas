@@ -7,7 +7,9 @@ exec &> >(tee -a "$LOG")
 echo "[`date`] ==== Inicio de rotina..."
 #+----------------GERANDO LOG-----------------------+OK"
 
+cd /tmp/
 clear
+
 #Checa se o usuario é zimbra
 LOCAL_USER=`id -u -n`
 
@@ -27,11 +29,11 @@ Principal() {
 	 codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
 	 kernel="Kernel				 : `uname -r`"
 	 arquitetura="Arquitetura	 : `uname -m`"
-	 versaozimbra="Versao Zimbra : `zmcontrol -v`"
+	 versaozimbra="Versao Zimbra : `/opt/zimbra/bin/zmcontrol -v`"
      echo "+-------------------------------------------------+"
      echo "|           Utilitario para Zimbra                |"
      echo "+-------------------------------------------------+"
-     echo "| Exportar / Importar Contas do Zimbra    v1.2    |"
+     echo "| Exportar / Importar Contas do Zimbra    v1.4    |"
      echo "+-------------------------------------------------+"
      echo "| Escrito por:                                    |"
      echo "| Thiago Castro - www.hostlp.net                  |"
@@ -58,9 +60,9 @@ Principal() {
 	 echo
      echo
      echo "Opcoes:"
-     echo "1. Exportar Dominios, Contas, Contatos, Listas, Alias, Assinaturas e Filtros"
+     echo "1. Exportar COS, Dominios, Contas, Contatos, Listas, Alias, Assinaturas e Filtros"
 	 echo
-	 echo "2. Importar Dominios, Contas, Contatos, Listas, Alias, Assinaturas e Filtros"
+	 echo "2. Importar COS Dominios, Contas, Contatos, Listas, Alias, Assinaturas e Filtros"
 	 echo
      echo "3. Sair"
 	 echo
@@ -84,14 +86,28 @@ Exportar1() {
 	echo -n "Digite dominio completo...: "
 	read DOMAIN
 	echo
-	cd /tmp/
 	DEST="zimbra/$DOMAIN"
 	cp -rf $DEST zimbra/$DOMAIN-BKP-$(date "+%Y%m%d")
-	mkdir $DEST/dominio $DEST/contas $DEST/contatos $DEST/listas $DEST/alias $DEST/assinaturas $DEST/filtros -p
+	mkdir $DEST/cos $DEST/dominio $DEST/contas $DEST/contatos $DEST/listas $DEST/alias $DEST/assinaturas $DEST/filtros -p
+	chown zimbra:zimbra $DEST -R
 	clear
 	
 #######################################################
 
+	echo "Exportando COS..."
+	echo
+	echo "Exportar COS? - Sim/Nao"
+	read CONFIRMA
+	case $CONFIRMA in
+s|S|Sim|sim)
+	ldapsearch -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -b '' -LLL "(objectclass=zimbraCOS)" > $DEST/cos/cos.ldiff
+		;;
+n|N|Nao|nao)
+		;;
+*) echo  "Opcao Invalida" ;; esac
+	echo "+-------------------------------------------------+OK"
+	echo
+	
 	echo "Exportando Dominio..."
 	echo
 	rm -rf $DEST/dominio/dominio
@@ -141,6 +157,7 @@ for lists in `cat $DEST/listas/listas`; do zmprov gdlm $lists > $DEST/listas/$li
 for user in `cat $DEST/contas/usuarios`; do zmprov ga $user | grep zimbraMailAlias | awk '{print $2}' | tee -a $DEST/alias/$user ; done
 find $DEST/alias/. -type f -empty | xargs -n1 rm -v 1&> /dev/null
 	echo "+-------------------------------------------------+OK"
+	echo
 
 	echo "Exportando Assinaturas..."
 	echo
@@ -153,7 +170,7 @@ for user in `cat $DEST/contas/usuarios`; do
 	sed -i -e "1d" /tmp/name ;
 	sed 's/zimbraSignatureName: //g' /tmp/name > $DEST/assinaturas/$user.name ;
 	rm -rf /tmp/name ;
-	echo "$user -- OK";
+	echo "$user";
 done
 	echo "+-------------------------------------------------+OK"
 
@@ -164,7 +181,7 @@ for user in `cat $DEST/contas/usuarios`; do
     sed -i -e "1d" /tmp/filtros
     sed 's/zimbraMailSieveScript: //g' /tmp/filtros  > $DEST/filtros/$user.filtros
     rm -f /tmp/filtros
-    echo "$user -- OK"
+    echo "$user"
 done 
 	echo "+-------------------------------------------------+OK"
 	
@@ -186,11 +203,25 @@ Importar1() {
 	echo
 	cd /tmp/
 	DEST="zimbra/$DOMAIN"
-#	mkdir $DEST/dominio $DEST/contas $DEST/contatos $DEST/listas $DEST/alias -p
+#	mkdir $DEST/cos $DEST/dominio $DEST/contas $DEST/contatos $DEST/listas $DEST/alias -p
 	chown zimbra:zimbra $DEST -R
 	clear
 	
 #######################################################
+
+	echo "Importando COS..."
+	echo
+	echo "Importar COS? - Sim/Nao"
+	read CONFIRMA
+	case $CONFIRMA in
+s|S|Sim|sim)
+	ldapadd -c -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -f $DEST/cos/cos.ldiff
+		;;
+n|N|Nao|nao)
+		;;
+*) echo  "Opcao Invalida" ;; esac
+	echo "+-------------------------------------------------+OK"
+	echo
 
 	echo "Importando Dominios..."
 	echo
@@ -267,6 +298,7 @@ do
      fi
 done
 	echo "+-------------------------------------------------+OK"
+	echo
 
 	echo "Importando Assinaturas..."
 	echo
@@ -281,6 +313,7 @@ for user in `cat $DEST/contas/usuarios`; do
 	echo "$user -- OK";
 done
 	echo "+-------------------------------------------------+OK"
+	echo
 
 	echo "Importando Filtros..."
 	echo
@@ -289,6 +322,7 @@ for user in `cat $DEST/contas/usuarios`; do
 	echo "$user -- OK";
 done
 	echo "+-------------------------------------------------+OK"
+	echo
 
 	echo
 	echo "Dados Importados"
