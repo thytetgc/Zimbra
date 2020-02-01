@@ -1,14 +1,16 @@
 #!/bin/bash
+
 #+----------------GERANDO LOG-----------------------+OK"
 SCRIPT=`basename $0`
-LOG=`echo /opt/zimbra/backup/$SCRIPT.log | sed s/'.sh'/'.log'/g`
+LOG=`echo $DEST/$SCRIPT.log | sed s/'.sh'/'.log'/g`
 exec &> >(tee -a "$LOG")
 echo "[`date`] ==== Inicio de rotina..."
 #+----------------GERANDO LOG-----------------------+OK"
 
+cd /tmp/
 clear
 
-#Checa se o usuario é Zimbra
+#Checa se o usuario é zimbra
 LOCAL_USER=`id -u -n`
 
 if [ $LOCAL_USER != "zimbra" ] ; then
@@ -18,210 +20,135 @@ if [ $LOCAL_USER != "zimbra" ] ; then
 	exit
 fi
 
-	dir="Diretorio Atual		 : `pwd`"
-	hostname="Hostname		 : `hostname --fqdn`"
-	ip="IP				 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
- 	versaoso="Versao S.O.		 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
-	release="Release		 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
-	codename="Codename		 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
-	kernel="Kernel			 : `uname -r`"
-	arquitetura="Arquitetura	 : `uname -m`"
-	versaozimbra="Versao Zimbra 	 : `zmcontrol -v`"
-echo "+-------------------------------------------------+"
-  echo "|           Utilitario para Zimbra                |"
-  echo "+-------------------------------------------------+"
-  echo "+-------------------------------------------------+"
-  echo "| Escrito por:                                    |"
-  echo "| Thiago Castro - www.hostlp.net                  |"
-  echo "+-------------------------------------------------+"
-  echo
-  echo $dir
-  echo "+-------------------------------------------------+"
-  echo $hostname
-  echo "+-------------------------------------------------+"
-  echo $ip
-  echo "+-------------------------------------------------+"
-  echo $versaoso
-  echo "+-------------------------------------------------+"
-  echo $release
-  echo "+-------------------------------------------------+"
-  echo $codename
-  echo "+-------------------------------------------------+"
-  echo $kernel
-  echo "+-------------------------------------------------+"
-  echo $arquitetura
-  echo "+-------------------------------------------------+"
-  echo $versaozimbra
-  echo "+-------------------------------------------------+"
-  echo
-#  echo "Aperte <ENTER> para continuar e começar..."
-#  read 
-  echo
-  echo "==================EXECUTANDO======================="
-  echo
+	clear
+     dir="Diretorio Atual		 : `pwd`"
+	 hostname="Hostname			 : `hostname --fqdn`"
+	 ip="IP						 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
+     versaoso="Versao S.O.		 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	 release="Release			 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	 codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	 kernel="Kernel				 : `uname -r`"
+	 arquitetura="Arquitetura	 : `uname -m`"
+	 versaozimbra="Versao Zimbra : `/opt/zimbra/bin/zmcontrol -v`"
+     echo "+-------------------------------------------------+"
+     echo "|           Utilitario para Zimbra                |"
+     echo "+-------------------------------------------------+"
+     echo "| Exportar / Importar Contas do Zimbra    v1.2    |"
+     echo "+-------------------------------------------------+"
+     echo "| Escrito por:                                    |"
+     echo "| Thiago Castro - www.hostlp.net                  |"
+     echo "+-------------------------------------------------+"
+     echo
+     echo $dir
+	 echo "+-------------------------------------------------+"
+	 echo $hostname
+	 echo "+-------------------------------------------------+"
+	 echo $ip
+	 echo "+-------------------------------------------------+"
+	 echo $versaoso
+	 echo "+-------------------------------------------------+"
+	 echo $release
+	 echo "+-------------------------------------------------+"
+	 echo $codename
+	 echo "+-------------------------------------------------+"
+     echo $kernel
+	 echo "+-------------------------------------------------+"
+     echo $arquitetura
+	 echo "+-------------------------------------------------+"
+	 echo $versaozimbra
+	 echo "+-------------------------------------------------+"
+	 echo
+     sleep 5
+	 echo
+	 echo "==================EXECUTANDO======================="
+	 echo
 
-#Obter interface desejada e IP do Zimbra para conexão
-#IFACE="eth0"
-IP=`/sbin/ifconfig $IFACE | sed -En 's/127.0.0.1//;s/.*inet (addr:)?(([0-9]*\.){3}[0-9]*).*/\2/p'`
 
-# Destino dos Arquivos
-# -------------------------------------------------------
-#echo -n "Onde salvar os backups..."
-#read DESTB
-#echo
-#DEST="$DESTB/Zimbra/`hostname --fqdn`"
-DEST="/opt/zimbra/backup"
-DESTTEMP="/tmp"
-ZMPROV="/opt/zimbra/bin/zmprov"
-ZMMAILBOX="/opt/zimbra/bin/zmmailbox"
+# Obtemos uma lista de todas as contas do servidor
+#	source ~/bin/zmshutil
+	source /opt/zimbra/bin/zmshutil
+	zmsetvars
+	zmprov=/opt/zimbra/bin/zmprov
+	zmmailbox=/opt/zimbra/bin/zmmailbox
+	ldapsearch=/opt/zimbra/common/bin/ldapsearch
+	DOMAIN=`hostname`
+	DEST="/opt/zimbra/backup/$DOMAIN"
+	cp -rf $DEST /tmp/$DOMAIN-BKP-$(date "+%Y%m%d")
+	mkdir $DEST/dominio $DEST/contas $DEST/contatos $DEST/listas $DEST/alias $DEST/assinaturas $DEST/filtros -p
+	chown zimbra:zimbra $DEST -R
+	clear
+	
+#######################################################
 
-# Definindo Variaveis de ambiente do Zimbra
-# -------------------------------------------------------
-source ~/bin/zmshutil
-zmsetvars
+	echo "Exportando Dominio..."
+	echo
+	rm -rf $DEST/dominio/dominio
+$zmprov gad | tee -a $DEST/dominio/dominio
+	echo "+-------------------------------------------------+OK"
+	echo
+	
+	echo "Exportando Contas..."
+	echo
+	rm -rf $DEST/contas/*
+	/opt/zimbra/bin/zmhostname > $DEST/server_old
+$zmprov gaaa | tee -a $DEST/contas/admins
+$zmprov -l gaa | tee -a $DEST/contas/usuarios
+for user in `cat $DEST/contas/usuarios`; do $ldapsearch -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -b '' -LLL "(zimbraMailDeliveryAddress=$user)" > $DEST/contas/$user.ldiff ; done
+	echo "+-------------------------------------------------+OK"
+	echo
 
-# Diretorios COS e Contas
-# -------------------------------------------------------
-###############################################
-echo "Criando diretórios COS e Contas"
-echo
-mkdir $DEST/COS $DEST/Contas -p
-echo "[OK]"
+	echo "Exportando Contatos..."
+	echo
+$zmprov -l gaa | while read conta; do $zmmailbox -z -m $conta gru /Contacts > $DEST/contatos/$conta.csv; echo "$conta"; done	
+	echo "+-------------------------------------------------+OK"
+	echo
 
-# Exportando Classes de Serviços
-# -------------------------------------------------------
-###############################################
-echo "Exportando COS"
-echo
-ldapsearch -x -H ldap://$IP -D uid=zimbra,cn=admins,cn=zimbra -w $zimbra_ldap_password -b '' -LLL "(objectclass=zimbraCOS)" > $DEST/COS/cos.ldiff
-	 echo "+-------------------------------------------------+OK"
+	echo "Exportando Listas de Distribuição..."
+	echo
+$zmprov gadl | tee -a $DEST/listas/listas
+for lists in `cat $DEST/listas/listas`; do $zmprov gdlm $lists > $DEST/listas/$lists ; done
+	echo "+-------------------------------------------------+OK"
+	echo
 
-# Exportando Contas
-# -------------------------------------------------------
-###############################################
-echo "Exportando Contas"
-echo
-ldapsearch -x -H ldap://$IP -D uid=zimbra,cn=admins,cn=zimbra -w $zimbra_ldap_password -b '' -LLL "(objectclass=zimbraAccount)" > $DEST/Contas/contas.ldiff
-	 echo "+-------------------------------------------------+OK"
+	echo "Exportando Alias..."
+	echo
+for user in `cat $DEST/contas/usuarios`; do $zmprov ga $user | grep zimbraMailAlias | awk '{print $2}' | tee -a $DEST/alias/$user ; done
+find $DEST/alias/. -type f -empty | xargs -n1 rm -v 1&> /dev/null
+	echo "+-------------------------------------------------+OK"
+	echo
 
-# Diretorios Alias, Listas
-# -------------------------------------------------------
-###############################################
-echo "Criando diretórios Alias, Listas"
-echo
-mkdir $DEST/Alias $DEST/Alias/alias $DEST/Listas -p
-echo "[OK]"
-
-# Exportando Alias
-# -------------------------------------------------------
-###############################################
-echo "Exportando Alias"
-echo
-ldapsearch -x -H ldap://$IP -D uid=zimbra,cn=admins,cn=zimbra -w $zimbra_ldap_password  -b '' -LLL "(objectclass=zimbraAlias)" uid | grep ^uid | awk '{print $2}' > $DEST/Alias/alias.ldiff
-
-for MAIL in $(cat $DEST/Alias/alias.ldiff);
-do
-  ldapsearch -x -H ldap://$IP -D uid=zimbra,cn=admins,cn=zimbra -w $zimbra_ldap_password -b '' -LLL "(&(uid=$MAIL)(objectclass=zimbraAlias))" > $DEST/Alias/alias/$MAIL.ldiff
-cat $DEST/Alias/alias/*.ldiff > $DEST/Alias/apelidos.ldiff
+	echo "Exportando Assinaturas..."
+	echo
+for user in `cat $DEST/contas/usuarios`; do
+$zmprov ga $user zimbraPrefMailSignatureHTML > /tmp/assinatura;
+	sed -i -e "1d" /tmp/assinatura ;
+	sed 's/zimbraPrefMailSignatureHTML: //g' /tmp/assinatura > $DEST/assinaturas/$user.assinatura ;
+	rm -rf /tmp/assinatura;
+	`$zmprov ga $user zimbraSignatureName > /tmp/name` ;
+	sed -i -e "1d" /tmp/name ;
+	sed 's/zimbraSignatureName: //g' /tmp/name > $DEST/assinaturas/$user.name ;
+	rm -rf /tmp/name ;
+	echo "$user";
 done
-rm -rf $DEST/Alias/alias
-	 echo "+-------------------------------------------------+OK"
+	echo "+-------------------------------------------------+OK"
+	echo
 
-# Exportando Listas de Distribuição
-# -------------------------------------------------------
-###############################################
-echo "Exportando Listas de Distribuição"
-echo
-ldapsearch -x -H ldap://$IP -D uid=zimbra,cn=admins,cn=zimbra -w $zimbra_ldap_password -b '' -LLL "(objectclass=zimbraDistributionList)" > $DEST/Listas/listas.ldiff
-	 echo "+-------------------------------------------------+OK"
-
-# Diretorios Agendas
-# -------------------------------------------------------
-###############################################
-echo "Criando diretório Agendas"
-echo
-mkdir $DEST/Agendas -p
-echo "[OK]"
-
-# Exportando Agendas
-# -------------------------------------------------------
-###############################################
-echo "Exportando Agendas"
-echo
-cd $DEST/Agendas/
-for MAIL in $($ZMPROV -l gaa | sort); do
-        $ZMMAILBOX  -z -m $MAIL getRestURL "/calendar?fmt=ics" > $DEST/Agendas/$MAIL.ics
-done
-	 echo "+-------------------------------------------------+OK"
-
-# Diretorios Contatos
-# -------------------------------------------------------
-###############################################
-echo "Criando diretório Contatos"
-echo
-mkdir $DEST/Contatos -p
-echo "[OK]"
-
-# Exportando Contatos
-# -------------------------------------------------------
-###############################################
-echo "Exportando Contatos"
-echo
-cd $DEST/Contatos/
-for MAIL in $($ZMPROV -l gaa | sort); do
-        $ZMMAILBOX  -z -m $MAIL getRestURL "/contacts?fmt=csv" > $DEST/Contatos/$MAIL.csv
-done
-	 echo "+-------------------------------------------------+OK"
-
-# Diretorios Filtros
-# -------------------------------------------------------
-###############################################
-echo "Criando diretório Filtros"
-echo
-mkdir $DEST/Filtros -p
-echo "[OK]"
-
-# Exportando Filtros
-# -------------------------------------------------------
-###############################################
-echo "Exportando Filtros"
-echo
-USERS=`zmprov -l gaa | sort`;
-for ACCOUNT in $USERS; do
-NAME=`echo $ACCOUNT`;
-done
-filter=`zmprov ga $NAME zimbraMailSieveScript > $DESTTEMP/$NAME`
-sed -i -e "1d" $DESTTEMP/$NAME
-sed 's/zimbraMailSieveScript: //g' $DESTTEMP/$NAME > $DEST/Filtros/$NAME
-rm $DESTTEMP/$NAME
-	 echo "+-------------------------------------------------+OK"
-
-# Diretorios Assinaturas
-# -------------------------------------------------------
-###############################################
-echo "Criando diretório Assinaturas"
-echo
-mkdir $DEST/Assinaturas -p
-echo "[OK]"
-
-# Exportando Assinaturas
-# -------------------------------------------------------
-###############################################
-echo "Exportando Assinaturas"
-echo
-USERS=`zmprov -l gaa | sort`;
-for ACCOUNT in $USERS; do
-NAME=`echo $ACCOUNT`;
-done
-filter=`zmprov ga $NAME zimbraPrefMailSignature > $DESTTEMP/$NAME`
-sed -i -e "1d" $DESTTEMP/$NAME
-sed 's/zimbraPrefMailSignature: //g' $DESTTEMP/$NAME > $DEST/Assinaturas/$NAME
-rm $DESTTEMP/$NAME
-	 echo "+-------------------------------------------------+OK"
-
-###############################################
-echo "Export para $DEST concluido"
-echo
-###############################################
-
+	echo "Exportando Filtros..."
+	echo
+for user in `cat $DEST/contas/usuarios`; do
+$zmprov ga $user zimbraMailSieveScript > /tmp/filtros
+    sed -i -e "1d" /tmp/filtros
+    sed 's/zimbraMailSieveScript: //g' /tmp/filtros  > $DEST/filtros/$user.filtros
+    rm -f /tmp/filtros
+    echo "$user"
+done 
+	echo "+-------------------------------------------------+OK"
+	echo
+	
+	echo
+	chown zimbra:zimbra $DEST -R
+	echo "Dados Exportadas"
+    echo "Pressione qualquer tecla para continuar..."
+ 
 echo "[`date`] ==== Fim de rotina..."
+
