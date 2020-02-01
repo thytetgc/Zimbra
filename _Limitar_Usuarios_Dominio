@@ -1,0 +1,82 @@
+#!/bin/bash
+
+clear
+
+#Variavel
+UsrZ="su - zimbra -c"
+
+#Checa se o usuario é root
+LOCAL_USER=`id -u -n`
+
+if [ $LOCAL_USER != "root" ] ; then
+	echo "     Rodar como usuario root"
+	echo "     saindo..."
+	echo ""
+	exit
+fi
+Principal() {
+	 clear
+     echo "+-------------------------------------------------+"
+     echo "|           Utilitario para Zimbra     v1.2       |"
+     echo "+-------------------------------------------------+"
+     echo "|         Limitar contas por Dominio              |"
+     echo "+-------------------------------------------------+"
+     echo "| Escrito por:                                    |"
+     echo "| Thiago Castro - www.hostlp.net                  |"
+     echo "+-------------------------------------------------+"
+     echo
+     echo
+     echo "Opcoes:"
+     echo "1. Listar Dominios Configurados"
+	 echo "2. Limite atual de usuarios de um Dominio"
+	 echo "3. Alterar limite de usuarios de um Dominio"
+	 echo
+     echo "4. Sair"
+	 echo
+	 echo
+     echo -n "Entre com a opcao desejada => "
+     read opcao
+     echo
+     case $opcao in
+        1) Listar ;;
+		2) Limite ;;
+		3) Alterar ;;
+        4) exit ;;
+        *) "Opcao desconhecida." ; echo ; Principal ;;
+     esac
+}
+
+Listar() {
+echo "Dominios atuais no Zimbra..."
+	echo
+$UsrZ 'zmprov gad'
+	echo
+    echo "Pressione qualquer tecla para continuar..."
+    read msg
+    Principal
+}
+  
+Limite() {
+echo -n "Verificar limite do dominio: "
+read DOMINIO
+$UsrZ 'zmprov gd '$DOMINIO' zimbraDomainMaxAccounts'
+	echo
+    echo "Pressione qualquer tecla para continuar..."
+    read msg
+    Principal
+}
+
+Alterar() {
+echo -n "Limitar usuarios para o dominio: "
+read DOMINIO
+echo -n "Quantas contas? "
+read QTSCONTAS
+$UsrZ 'zmprov md '$DOMINIO' zimbraDomainMaxAccounts '$QTSCONTAS''
+	echo
+echo "Alterado"
+	echo
+    echo "Pressione qualquer tecla para continuar..."
+    read msg
+    Principal
+}
+Principal
