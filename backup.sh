@@ -43,7 +43,7 @@ f_delFiles $backup
          echo "+-------------------------------------------------+OK"
          echo
          
-echo [`date +'%d.%m.%Y %H:%M'`] Salve $source em $dateiname [3/4] ...
+echo "[`date +'%d.%m.%Y %H:%M'`] Salve $source em $dateiname [3/4] ..."
 tar -Pcf $dateinametar $source
 zip -P $senha -r $dateinamezip $dateinametar
 rm $dateinametar
