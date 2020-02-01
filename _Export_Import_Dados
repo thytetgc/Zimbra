@@ -3,7 +3,7 @@
 #+----------------GERANDO LOG-----------------------+OK"
 SCRIPT=`basename $0`
 LOG=`echo $DEST/$SCRIPT.log | sed s/'.sh'/'.log'/g`
-exec &> >(tee -a "$LOG") 1&> /dev/null
+exec &> >(tee -a "$LOG")
 echo "[`date`] ==== Inicio de rotina..."
 #+----------------GERANDO LOG-----------------------+OK"
 
