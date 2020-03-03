@@ -2,7 +2,7 @@ require ["fileinto", "copy", "reject", "tag", "flag", "variables", "log", "enoti
 
 # Avas - SPAM
 if anyof (header :contains ["subject"] "[*]") {
-    fileinto "Junk";
+    fileinto "Inbox";
     stop;
 }
 
