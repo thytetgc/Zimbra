@@ -6,4 +6,3 @@ if anyof (header :contains ["subject"] "[*]") {
     stop;
 }
 
-
