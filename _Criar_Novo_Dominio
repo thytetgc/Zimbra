@@ -27,7 +27,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra                |"
+     echo "|           Utilitario para Zimbra     v1.5      |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -75,6 +75,19 @@ echo -n "Digite a descrição do novo COS: "
 read DESCRICAO
 $UsrZ 'zmprov mc "'$NEWCOS'" description '$DESCRICAO''
 	 echo "+-------------------------------------------------+OK"
+
+echo "Alterar Quota padrão por usuario do dominio em bytes (1073741824 = 1GB / 2147483648 = 2GB / 3221225472 = 3GB / 4294967296 = 4GB / 5368709120 = 5GB / 0 = ILIMITADO)"
+echo -n "Digite em bytes a quota do novo Dominio: "
+read USRQUOTA
+$UsrZ 'zmprov mc "'$NEWCOS'" zimbraMailQuota "'$USRQUOTA'"'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Ajustando o tempo de vida dos e-mails (0 = ILIMITADO / Padrão HOSTLP 7200)"
+echo -n "Digite em dias o tempo de vida dos e-mails do Dominio: "
+read LIFETIME
+$UsrZ 'zmprov mc "'$NEWCOS'" zimbraMailMessageLifetime "'$LIFETIME'"'
+$UsrZ 'zmprov ms `zmhostname` zimbraMailPurgeSleepInterval 1m'
+	 echo "+-------------------------------------------------+OK"
 	 
 echo
 echo
@@ -88,7 +101,7 @@ $UsrZ 'zmprov cd '$NEWDOMAIN''
 	 echo "+-------------------------------------------------+OK"
 	 
 echo "Adicioando Dominio novo para o COS criado"
-NCOS="`su - zimbra -c "zmprov gc default zimbraId|cut -d' ' -f2|egrep -v 'name|$^'"`"
+NCOS="`su - zimbra -c "zmprov gc '$NEWCOS' zimbraId|cut -d' ' -f2|egrep -v 'name|$^'"`"
 $UsrZ 'zmprov md '$NEWDOMAIN' zimbraDomainDefaultCOSId '$NCOS''
 #$UsrZ 'for NCOS in $(zmprov gc "'$NEWCOS'" zimbraId | cut -d' ' -f2 | grep -v name); do zmprov md '$NEWDOMAIN' zimbraDomainDefaultCOSId $NCOS; done'
 #$UsrZ 'for NCOS in $(zmprov gc '$NEWCOS' zimbraId|awk '{print $2}'|egrep -v "name|$^"); do zmprov md "'$NEWDOMAIN'" zimbraDomainDefaultCOSId $NCOS; done'
@@ -103,13 +116,14 @@ $UsrZ 'zmprov md '$NEWDOMAIN' zimbraPrefTimeZoneId America/Sao_Paulo'
 	 echo "+-------------------------------------------------+OK"
 	 
 echo "Acertando Protocolo"
-$UsrZ 'zmprov md '$NEWDOMAIN' zimbraPublicServiceProtocol http'
+$UsrZ 'zmprov md '$NEWDOMAIN' zimbraPublicServiceProtocol https'
 	 echo "+-------------------------------------------------+OK"
 	 
-echo "Alterar Quota do dominio em bytes (1073741824 = 1GB / 2147483648 = 2GB / 3221225472 = 3GB / 4294967296 = 4GB / 5368709120 = 5GB)"
+echo "Alterar Quota do dominio em bytes (10737418240 = 10GB / 21474836480 = 20GB / 32212254720 = 30GB / 42949672960 = 40GB / 53687091200 = 50GB)"
+echo "Ou ENTER para ilimitado"
 echo -n "Digite em bytes a quota do novo Dominio: "
 read DOMANINQUOTA
-$UsrZ 'zmprov md '$NEWDOMAIN' zimbraMailDomainQuota '$DOMANINQUOTA''
+$UsrZ 'zmprov md '$NEWDOMAIN' zimbraDomainAggregateQuota "'$DOMANINQUOTA'"'
 	 echo "+-------------------------------------------------+OK"
 	 
 echo "Enviar e-mail de aviso de Quota para: "
@@ -127,6 +141,13 @@ echo -n "Digite o nome do Compartilhamento do Porta Arquivos: "
 read PORTAARQ
 $UsrZ 'zmprov md '$NEWDOMAIN' zimbraBasicAuthRealm "'$PORTAARQ'"'
 	 echo "+-------------------------------------------------+OK"
+
+echo "Criando usuario GALSYNC: "
+$UsrZ 'zmgsautil createAccount -a galsync@'$NEWDOMAIN' -n '$NEWCOS' --domain '$NEWDOMAIN' -t zimbra -s `hostname --fqdn` -f '$NEWCOS''
+$UsrZ 'zmgsautil forceSync -a galsync@'$NEWDOMAIN' -n '$NEWCOS''
+$UsrZ 'zmprov mds galsync@'$NEWDOMAIN' '$NEWCOS' zimbraDataSourcePollingInterval 12h'
+
+	 echo "+-------------------------------------------------+OK"
 	 
 echo
 echo
@@ -134,9 +155,9 @@ echo
 echo "Ajustes finos"
 echo "+-------------------------------------------------+"
 echo "Alterando Logo"
-$UsrZ 'zmprov md '$NEWDOMAIN' zimbraSkinLogoURL http://site.hostlp.com.br'
-$UsrZ 'zmprov md '$NEWDOMAIN' zimbraSkinLogoLoginBanner http://site.hostlp.com.br/imagens/zimbra/Logotipo_Novo_130x58.png'
-$UsrZ 'zmprov md '$NEWDOMAIN' zimbraSkinLogoAppBanner http://site.hostlp.com.br/imagens/zimbra/Logotipo_Novo_80x36.png'
+$UsrZ 'zmprov md '$NEWDOMAIN' zimbraSkinLogoURL https://site.hostlp.com.br'
+$UsrZ 'zmprov md '$NEWDOMAIN' zimbraSkinLogoLoginBanner https://site.hostlp.com.br/imagens/zimbra/Logotipo_Novo_130x58.png'
+$UsrZ 'zmprov md '$NEWDOMAIN' zimbraSkinLogoAppBanner https://site.hostlp.com.br/imagens/zimbra/Logotipo_Novo_80x36.png'
 	 echo "+-------------------------------------------------+OK"
 	 
 echo "Limitar usuarios para o Dominio"
@@ -144,14 +165,18 @@ echo -n "Quantas contas? "
 read QTSCONTAS
 $UsrZ 'zmprov md '$NEWDOMAIN' zimbraDomainMaxAccounts '$QTSCONTAS''
 	 echo "+-------------------------------------------------+OK"
-	 
+
+echo "Alterando CharSet do COS"
+$UsrZ 'zmprov mc '$NEWCOS' zimbraPrefMailDefaultCharset UTF-8'
+	 echo "+-------------------------------------------------+OK"
+
 echo "Criando DKIM"
 $UsrZ '/opt/zimbra/libexec/zmdkimkeyutil -a -d '$NEWDOMAIN''
 	 echo "+-------------------------------------------------+OK"
 	 
 echo
 echo
-echo "Aperte <ENTER> para continuar e começar..."
+echo "Aperte <ENTER> para finalizar..."
 read
 
 echo "[`date`] ==== Fim de rotina..."
