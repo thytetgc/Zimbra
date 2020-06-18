@@ -1,0 +1,102 @@
+#!/bin/bash
+#+----------------GERANDO LOG-----------------------+OK"
+SCRIPT=`basename $0`
+LOG=`echo /opt/zimbra/$SCRIPT.log | sed s/'.sh'/'.log'/g`
+exec &> >(tee -a "$LOG")
+echo "[`date`] ==== Inicio de rotina..."
+#+----------------GERANDO LOG-----------------------+OK"
+
+clear
+
+#Checa se o usuario é zimbra
+LOCAL_USER=`id -u -n`
+
+if [ $LOCAL_USER != "zimbra" ] ; then
+	echo "     Rodar como usuario zimbra"
+	echo "     saindo..."
+	echo ""
+	exit
+fi
+	dir="Diretorio Atual		 : `pwd`"
+	hostname="Hostname			 : `hostname --fqdn`"
+	ip="IP						 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
+    versaoso="Versao S.O.		 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	release="Release			 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	kernel="Kernel				 : `uname -r`"
+	arquitetura="Arquitetura	 : `uname -m`"
+	#versaozimbra="Versao Zimbra : `zmcontrol -v`"
+    echo "+-------------------------------------------------+"
+    echo "|           Utilitario para Zimbra  v1.5          |"
+    echo "+-------------------------------------------------+"
+    echo "+-------------------------------------------------+"
+    echo "| Escrito por:                                    |"
+    echo "| Thiago Castro - www.hostlp.cloud                |"
+    echo "+-------------------------------------------------+"
+    echo
+    echo $dir
+	echo "+-------------------------------------------------+"
+	echo $hostname
+	echo "+-------------------------------------------------+"
+	echo $ip
+	echo "+-------------------------------------------------+"
+	echo $versaoso
+	echo "+-------------------------------------------------+"
+	echo $release
+	echo "+-------------------------------------------------+"
+	echo $codename
+	echo "+-------------------------------------------------+"
+    echo $kernel
+	echo "+-------------------------------------------------+"
+    echo $arquitetura
+	echo "+-------------------------------------------------+"
+	echo $versaozimbra
+	echo "+-------------------------------------------------+"
+	echo
+	echo "Aperte <ENTER> para continuar e começar..."
+	read 
+	sleep 5
+	echo
+	echo "==================EXECUTANDO======================="
+	echo
+	
+#Variavel
+UsrZ="su - zimbra -c"
+
+#nome do servidor zimbra
+SERVIDOR="`hostname --fqdn`"
+
+echo "Capiturando contas de e-mail..."
+# zmprov gaa -s $SERVIDOR => lista todos os email cadastrados
+for EMAIL in $(zmprov -l gaa -s `zmhostname`)
+do
+	 echo "+-------------------------------------------------+OK"
+echo $EMAIL
+
+echo "Colocando a conta em manutenção..."
+zmprov ma $EMAIL zimbraAccountStatus maintenance
+	 
+echo "Deletando o indexe da conta..."
+rm /opt/zimbra/index/0/$(zmprov gmi $EMAIL | grep mailboxId | awk '{ print $2 }')/index/* -Rf
+done
+	 echo "+-------------------------------------------------+OK"
+
+echo "Reiniciando o zimbra..."
+zmcontrol stop
+zmcontrol start
+
+echo "Capiturando contas de e-mail..."
+for EMAIL in $(zmprov -l gaa -s `zmhostname`)
+do
+	 echo "+-------------------------------------------------+OK"
+echo $EMAIL
+
+echo "Indexando a maibox..."
+zmprov rim $EMAIL start
+
+echo "Reativando a conta..."
+zmprov ma $EMAIL zimbraAccountStatus active
+done
+	 echo "+-------------------------------------------------+OK"
+
+echo "[`date`] ==== Fim de rotina..."
