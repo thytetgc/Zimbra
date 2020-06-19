@@ -34,7 +34,7 @@ Principal() {
      echo "+-------------------------------------------------+"
      echo "|           Utilitario para Zimbra                |"
      echo "+-------------------------------------------------+"
-     echo "| Exportar / Importar Contas do Zimbra    v1.6    |"
+     echo "| Exportar / Importar Contas do Zimbra    v1.7    |"
      echo "+-------------------------------------------------+"
      echo "| Escrito por:                                    |"
      echo "| Thiago Castro - www.hostlp.net                  |"
@@ -87,7 +87,7 @@ Exportar1() {
 	echo -n "Digite dominio completo...: "
 	read DOMAIN
 	echo
-	DEST="zimbra/$DOMAIN"
+	DEST="/tmp/zimbra/backup/$DOMAIN"
 	cp -rf $DEST zimbra/$DOMAIN-BKP-$(date "+%Y%m%d")
 	mkdir $DEST/cos $DEST/dominio $DEST/contas $DEST/contatos $DEST/listas $DEST/alias $DEST/assinaturas $DEST/filtros -p
 	chown zimbra:zimbra $DEST -R
@@ -212,7 +212,7 @@ Importar1() {
 	read DOMAIN
 	echo
 	cd /tmp/
-	DEST="zimbra/$DOMAIN"
+	DEST="/tmp/zimbra/backup/$DOMAIN"
 #	mkdir $DEST/cos $DEST/dominio $DEST/contas $DEST/contatos $DEST/listas $DEST/alias -p
 	chown zimbra:zimbra $DEST -R
 	clear
@@ -225,7 +225,7 @@ Importar1() {
 	read CONFIRMA
 	case $CONFIRMA in
 s|S|Sim|sim)
-	cat $DEST/cos/cos
+	#cat $DEST/cos/cos
 	ldapadd -c -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -f $DEST/cos/cos.ldiff
 		;;
 n|N|Nao|nao)
@@ -261,9 +261,9 @@ find $DEST -name 'admin.*' -exec rm {} \;
 #	read SERVEROLD
 #	echo -n "Digite o nome do Servidor novo.....: "
 #	read SERVENEW
-	SERVEROL="cat $DEST/server_old"
+	SERVEROL="`cat $DEST/server_old`"
 	SERVERNE="`zmhostname`"
-	find $DEST -type f -name '*.ldiff' -exec sed -i 's/$SERVEROL/$SERVERNE/g' "{}" \;
+	find $DEST -type f -name '*.ldiff' -exec sed -i "s/$SERVEROL/$SERVERNE/g" "{}" \;
 for user in `cat $DEST/contas/usuarios`; do ldapadd -x -H $ldap_master_url -D $zimbra_ldap_userdn -c -w $zimbra_ldap_password -f $DEST/contas/$user.ldiff ; done
 	echo "+-------------------------------------------------+OK"
 	echo
