@@ -27,11 +27,11 @@ fi
         arquitetura="Arquitetura         : `uname -m`"
         versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra   v1.0         |"
+    echo "|           Utilitario para Zimbra   v1.2         |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
-    echo "| Thiago Castro - www.hostlp.net                  |"
+    echo "| Thiago Castro - www.hostlp.cloud                |"
     echo "+-------------------------------------------------+"
     echo
     echo $dir
@@ -118,7 +118,7 @@ DOMAIN="$DOMAIN_MIG"
         echo
         echo "Aperte <ENTER> para começar a migração..."
 		echo
-		echo "NÃO ESQUEÇA DE CRIAR O ARQUIVO "Contas-ImapSync em /opt/zimbra/""
+		echo "NÃO ESQUEÇA DE CRIAR O ARQUIVO "Contas-ImapSync em /Scripts_Zimbra/""
 		echo "COM CONTEUDO DE "usuario;senha""
         read
 
@@ -194,7 +194,7 @@ TIME_NOW=$(date +"%Y-%m-%d %T")
 echo "Usuário $USER_NAME feito"
 echo "Finalizado $USER_NAME $TIME_NOW" >> $LOGFILE
 echo "" >> $LOGFILE
-done ; } < /opt/zimbra/Contas-ImapSync
+done ; } < /Scripts_Zimbra/Contas-ImapSync
 TIME_NOW=$(date +"%Y-%m-%d %T")
 echo "" >> $LOGFILE
 echo "IMAPSync Finalizado - $TIME_NOW" >> $LOGFILE
