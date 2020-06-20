@@ -34,7 +34,7 @@ fi
      echo "+-------------------------------------------------+"
      echo "|           Utilitario para Zimbra                |"
      echo "+-------------------------------------------------+"
-     echo "| 		Exportar Contas do Zimbra v1.7           |"
+     echo "| 		Exportar Contas do Zimbra v1.8           |"
      echo "+-------------------------------------------------+"
      echo "| Escrito por:                                    |"
      echo "| Thiago Castro - www.hostlp.cloud                |"
@@ -74,7 +74,7 @@ fi
 	ldapsearch=/opt/zimbra/common/bin/ldapsearch
 	DOMAIN=`hostname -d`
 	DEST="/opt/zimbra/backup/$DOMAIN"
-	cp -rf $DEST /tmp/$DOMAIN-BKP-$(date "+%Y%m%d")
+	mv $DEST /tmp/$DOMAIN-BKP-$(date "+%Y%m%d")
 	mkdir $DEST/cos $DEST/dominio $DEST/contas $DEST/contatos $DEST/agendas $DEST/listas $DEST/alias $DEST/assinaturas $DEST/filtros -p
 	chown zimbra:zimbra $DEST -R
 	clear
