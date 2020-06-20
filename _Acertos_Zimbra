@@ -27,11 +27,11 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra  v1.5          |"
+    echo "|           Utilitario para Zimbra  v1.7          |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
-    echo "| Thiago Castro - www.hostlp.net                  |"
+    echo "| Thiago Castro - www.hostlp.cloud                  |"
     echo "+-------------------------------------------------+"
     echo
     echo $dir
@@ -68,6 +68,7 @@ UsrZ="su - zimbra -c"
 #$UsrZ 'zmprov -l gs `zmhostname` | grep -i port'
 #$UsrZ 'zmprov gs `zmhostname` | grep MailMode'
 #$UsrZ 'zmprov gs `zmhostname` | grep -i installed'
+#$UsrZ 'zmprov gacf | grep zimbraMailPurgeSleepInterval'
 #	 echo "+-------------------------------------------------+OK"
 
 #Define portas de Proxy para 0
@@ -79,6 +80,13 @@ $UsrZ 'zmprov -l ms `zmhostname` zimbraPop3SSLProxyBindPort 0'
 $UsrZ 'zmprov -l ms `zmhostname` zimbraMailProxyPort 0'
 $UsrZ 'zmprov -l ms `zmhostname` zimbraMailSSLProxyPort 0'
 $UsrZ 'zmprov -l ms `zmhostname` zimbraAdminProxyPort 0'
+$UsrZ 'zmprov mcf zimbraImapProxyBindPort 0'
+$UsrZ 'zmprov mcf zimbraImapSSLProxyBindPort 0'
+$UsrZ 'zmprov mcf zimbraPop3ProxyBindPort 0'
+$UsrZ 'zmprov mcf zimbraPop3SSLProxyBindPort 0'
+$UsrZ 'zmprov mcf zimbraMailProxyPort 0'
+$UsrZ 'zmprov mcf zimbraMailSSLProxyPort 0'
+$UsrZ 'zmprov mcf zimbraAdminProxyPort 0'
 	 echo "+-------------------------------------------------+OK"
 
 #Define as portas nao "Proxy" para as portas padrão desejada
@@ -92,6 +100,15 @@ $UsrZ 'zmprov -l ms `zmhostname` zimbraMailSSLPort 443'
 $UsrZ 'zmprov -l ms `zmhostname` zimbraAdminPort 7071'
 $UsrZ 'zmprov -l ms `zmhostname` zimbraMailMode redirect'
 $UsrZ 'zmprov -l ms `zmhostname` zimbraReverseProxyMailMode both'
+$UsrZ 'zmprov mcf zimbraImapBindPort 143'
+$UsrZ 'zmprov mcf zimbraImapSSLBindPort 993'
+$UsrZ 'zmprov mcf zimbraPop3BindPort 110'
+$UsrZ 'zmprov mcf zimbraPop3SSLBindPort 995'
+$UsrZ 'zmprov mcf zimbraMailPort 80'
+$UsrZ 'zmprov mcf zimbraMailSSLPort 443'
+$UsrZ 'zmprov mcf zimbraAdminPort 7071'
+$UsrZ 'zmprov mcf zimbraMailMode redirect'
+$UsrZ 'zmprov mcf zimbraReverseProxyMailMode both'
 	 echo "+-------------------------------------------------+OK"
 
 #Mudar porta de HTTP para HTTPS
@@ -117,7 +134,7 @@ $UsrZ '/opt/zimbra/bin/zmupdateauthkeys'
 #Acertando o LMTA
 echo "Acertando o LMTA"
 $UsrZ 'zmprov -l ms `zmhostname` zimbraMtaLmtpHostLookup native'
-$UsrZ 'zmprov -l mcf zimbraMtaLmtpHostLookup native'
+$UsrZ 'zmprov mcf zimbraMtaLmtpHostLookup native'
 	 echo "+-------------------------------------------------+OK"
 
 #Configurando resposta rapida quando der Over Quota
@@ -150,17 +167,17 @@ echo tail -f /var/log/mail.log > /sbin/maillog ; chmod +x /sbin/maillog
 echo "Aumentando o limite do tamanhoa de anexos -> 10mb = 10485760 / 20mb = 20971520 / 30mb = 31457280 / 40mb = 41943040 / 50mb = 52428800"
 echo -n "Limitar anexos em...: "
 read LANX
-$UsrZ 'zmprov modifyConfig zimbraMailContentMaxSize '$LANX''
-$UsrZ 'zmprov modifyConfig zimbraImapMaxRequestSize '$LANX''
-$UsrZ 'zmprov modifyConfig zimbraMtaMaxMessageSize '$LANX''
-$UsrZ 'zmprov modifyConfig zimbraFileUploadMaxSize '$LANX''
-$UsrZ 'zmprov modifyConfig zimbraFileUploadMaxSizePerFile '$LANX''
+$UsrZ 'zmprov mcf zimbraMailContentMaxSize '$LANX''
+$UsrZ 'zmprov mcf zimbraImapMaxRequestSize '$LANX''
+$UsrZ 'zmprov mcf zimbraMtaMaxMessageSize '$LANX''
+$UsrZ 'zmprov mcf zimbraFileUploadMaxSize '$LANX''
+$UsrZ 'zmprov mcf zimbraFileUploadMaxSizePerFile '$LANX''
 	 echo "+-------------------------------------------------+OK"
 
 #Acertando os banners
 echo "Acertando os banners"
 $UsrZ 'zmlocalconfig -e postfix_smtpd_banner="`hostname --fqdn`"'
-$UsrZ 'zmprov -l mcf zimbraMtaMyHostname `hostname --fqdn`'
+$UsrZ 'zmprov mcf zimbraMtaMyHostname `hostname --fqdn`'
 	 echo "+-------------------------------------------------+OK"
 
 #Alterando logos de todos os dominios
@@ -190,10 +207,12 @@ case $CONFIRMA in
 s|S|Sim|sim)
 $UsrZ 'zmprov -l ms `zmhostname` +zimbraServiceEnabled imapproxy'
 $UsrZ 'zmprov -l ms `zmhostname` +zimbraServiceEnabled proxy'
+$UsrZ 'zmprov mcf zimbraReverseProxyMailEnabled TRUE'
 		;;
 n|N|Nao|nao)
 $UsrZ 'zmprov -l ms `zmhostname` -zimbraServiceEnabled imapproxy'
 $UsrZ 'zmprov -l ms `zmhostname` -zimbraServiceEnabled proxy'
+$UsrZ 'zmprov mcf zimbraReverseProxyMailEnabled FALSE'
 		;;
 *) echo  "Opcao Invalida" ;; esac
 	 echo "+-------------------------------------------------+OK"
@@ -221,7 +240,7 @@ $UsrZ 'zmlocalconfig -e antispam_enable_restarts=true'
 $UsrZ 'zmlocalconfig -e antispam_enable_rule_compilation=true'
 $UsrZ 'zmprov mcf zimbraAmavisOriginatingBypassSA TRUE'
 $UsrZ 'zmprov mcf zimbraSpamKillPercent 90'
-$UsrZ 'zmprov mcf zimbraSpamTagPercent 40'
+$UsrZ 'zmprov mcf zimbraSpamTagPercent 50'
 $UsrZ 'zmprov mcf zimbraSpamSubjectTag "[*]"'
 $UsrZ 'echo score DOS_OUTLOOK_TO_MX 0 > ~/data/spamassassin/localrules/sauser.cf'
 $UsrZ 'echo score TO_EQ_FM_DIRECT_MX 0 >> ~/data/spamassassin/localrules/sauser.cf'
@@ -267,6 +286,7 @@ $UsrZ 'zmprov -l ms `zmhostname` +zimbraServiceEnabled amavis'
 $UsrZ 'zmprov -l ms `zmhostname` +zimbraServiceEnabled antivirus'
 $UsrZ 'zmprov mcf zimbraVirusDefinitionsUpdateFrequency 2h'
 $UsrZ 'zmprov mcf zimbraAmavisLogLevel 2'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios amaviswhitelistsender ""; done'
 $UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender $dominios; done'
 $UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender hostlp.com.br; done'
 $UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender hostlp.net; done'
@@ -416,6 +436,7 @@ echo -n "Digite em dias o tempo de vida dos e-mails do Dominio: "
 read LIFETIME
 $UsrZ 'zmprov mc default zimbraMailMessageLifetime "'$LIFETIME'"'
 $UsrZ 'zmprov ms `zmhostname` zimbraMailPurgeSleepInterval 1m'
+#https://wiki.zimbra.com/wiki/Mailbox_Purge
 	 echo "+-------------------------------------------------+OK"
 
 #Reescreve alterações
