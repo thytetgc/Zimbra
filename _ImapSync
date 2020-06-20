@@ -27,7 +27,7 @@ fi
         arquitetura="Arquitetura         : `uname -m`"
         versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra   v1.2         |"
+    echo "|           Utilitario para Zimbra   v1.3         |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -35,40 +35,38 @@ fi
     echo "+-------------------------------------------------+"
     echo
     echo $dir
-        echo "+-------------------------------------------------+"
-        echo $hostname
-        echo "+-------------------------------------------------+"
-        echo $ip
-        echo "+-------------------------------------------------+"
-        echo $versaoso
-        echo "+-------------------------------------------------+"
-        echo $release
-        echo "+-------------------------------------------------+"
-        echo $codename
-        echo "+-------------------------------------------------+"
-    echo $kernel
-        echo "+-------------------------------------------------+"
-    echo $arquitetura
-        echo "+-------------------------------------------------+"
-        echo $versaozimbra
-        echo "+-------------------------------------------------+"
-        echo
-        echo "Aperte <ENTER> para continuar e começar..."
-        read
-        sleep 5
-        echo
-        echo "==================EXECUTANDO======================="
-        echo
+    echo "+-------------------------------------------------+"
+    echo $hostname
+    echo "+-------------------------------------------------+"
+    echo $ip
+    echo "+-------------------------------------------------+"
+    echo $versaoso
+    echo "+-------------------------------------------------+"
+    echo $release
+    echo "+-------------------------------------------------+"
+    echo $codename
+    echo "+-------------------------------------------------+"
+	echo $kernel
+    echo "+-------------------------------------------------+"
+	echo $arquitetura
+    echo "+-------------------------------------------------+"
+    echo $versaozimbra
+    echo "+-------------------------------------------------+"
+    echo
+    echo "Aperte <ENTER> para continuar e começar..."
+    read
+    sleep 5
+    echo
+    echo "==================EXECUTANDO======================="
+    echo
 
 #Instalando ImapSync
 echo "Deseja instalar ImapSync? - Sim/Nao"
 read CONFIRMA
 case $CONFIRMA in
 s|S|Sim|sim)
-sudo apt-get install makepasswd rcs perl-doc libio-tee-perl git libmail-imapclient-perl libdigest-md5-file-perl libterm-readkey-perl libfile-copy-recursive-perl build-essential make automake libunicode-string-perl libauthen-ntlm-perl libcrypt-ssleay-perl libdigest-hmac-perl libfile-copy-recursive-perl libio-compress-perl libio-socket-inet6-perl libio-socket-ssl-perl libio-tee-perl libmodule-scandeps-perl libnet-ssleay-perl libpar-packer-perl libreadonly-perl libterm-readkey-perl libtest-pod-perl libtest-simple-perl libunicode-string-perl liburi-perl cpanminus libssl-dev -y
-
-sudo apt-get install libauthen-ntlm-perl libclass-load-perl libcrypt-ssleay-perl liburi-perl libdata-uniqid-perl libdigest-hmac-perl libdist-checkconflicts-perl libfile-copy-recursive-perl libio-compress-perl libio-socket-inet6-perl libio-socket-ssl-perl libio-tee-perl libmail-imapclient-perl libmodule-scandeps-perl libnet-ssleay-perl libpar-packer-perl libreadonly-perl libsys-meminfo-perl libterm-readkey-perl libtest-fatal-perl libtest-mock-guard-perl libtest-pod-perl libtest-requires-perl libtest-simple-perl libunicode-string-perl -y
-
+sudo apt-get install apt-file makepasswd rcs perl-doc libio-tee-perl git libmail-imapclient-perl libdigest-md5-file-perl libterm-readkey-perl libfile-copy-recursive-perl build-essential make automake libunicode-string-perl libauthen-ntlm-perl libcrypt-ssleay-perl libdigest-hmac-perl libfile-copy-recursive-perl libio-compress-perl libio-socket-inet6-perl libio-socket-ssl-perl libio-tee-perl libmodule-scandeps-perl libnet-ssleay-perl libpar-packer-perl libreadonly-perl libterm-readkey-perl libtest-pod-perl libtest-simple-perl libunicode-string-perl liburi-perl cpanminus libssl-dev -y
+sudo apt-get install apt-file libauthen-ntlm-perl libclass-load-perl libcrypt-ssleay-perl liburi-perl libdata-uniqid-perl libdigest-hmac-perl libdist-checkconflicts-perl libfile-copy-recursive-perl libio-compress-perl libio-socket-inet6-perl libio-socket-ssl-perl libio-tee-perl libmail-imapclient-perl libmodule-scandeps-perl libnet-ssleay-perl libpar-packer-perl libreadonly-perl libsys-meminfo-perl libterm-readkey-perl libtest-fatal-perl libtest-mock-guard-perl libtest-pod-perl libtest-requires-perl libtest-simple-perl libunicode-string-perl -y
 sudo cpanm JSON::WebToken Test::MockObject Unicode::String Data::Uniqid Sys::MemInfo Regexp::Common JSON::WebToken::Crypt::RSA Dist::CheckConflicts Crypt::OpenSSL::RSA File::Tail CGI
 cd /usr/src
 git clone git://github.com/imapsync/imapsync.git
@@ -119,26 +117,26 @@ DOMAIN="$DOMAIN_MIG"
         echo "Aperte <ENTER> para começar a migração..."
 		echo
 		echo "NÃO ESQUEÇA DE CRIAR O ARQUIVO "Contas-ImapSync em /Scripts_Zimbra/""
-		echo "COM CONTEUDO DE "usuario;senha""
+		echo "COM CONTEUDO DE "usuario";"senha""
         read
 
 Principal() {
 clear
         echo "Escolha qual forma de Migração"
         echo "Opcoes:"
-    echo "1. Zimbra para Zimbra"
+		echo "1. Zimbra para Zimbra"
         echo "2. Imap para Imap"
-    echo
+		echo
         echo "3. Sair"
         echo
         echo
-    echo -n "Entre com a opcao desejada => "
-    read opcao
-    echo
-    case $opcao in
+		echo -n "Entre com a opcao desejada => "
+		read opcao
+		echo
+		case $opcao in
         1) Z2Z ;;
-                2) I2I ;;
-                3) exit ;;
+        2) I2I ;;
+        3) exit ;;
         *) "Opcao desconhecida." ; echo ; Principal ;;
      esac
 }
