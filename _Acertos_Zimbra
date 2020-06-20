@@ -27,7 +27,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra  v1.7          |"
+    echo "|           Utilitario para Zimbra  v1.8          |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -301,7 +301,6 @@ $UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsen
 $UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender google.com; done'
 $UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender mercadolivre.com; done'
 $UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender mercadopago.com; done'
-$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender microsoft.com; done'
 $UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsender outlook.com; done'
     echo "+-------------------------------------------------+OK"
         ;;
@@ -323,14 +322,39 @@ $UsrZ 'zmprov ms `zmhostname` zimbraHttpThrottleSafeIPs 127.0.0.1/32 zimbraHttpT
 
 #Desativando alguns ZimLets
 echo "Desativando alguns ZimLets"
-$UsrZ 'zmzimletctl disable com_zextras_drive_open' 1&> /dev/null
-$UsrZ 'zmzimletctl disable com_zextras_chat_open' 1&> /dev/null
 $UsrZ 'zmzimletctl disable com_zextras_mailarchive' 1&> /dev/null
 $UsrZ 'zmzimletctl disable com_zextras_webex' 1&> /dev/null
 $UsrZ 'zmzimletctl disable com_zextras_ymemoticons' 1&> /dev/null
-apt-get remove zimbra-chat zimbra-drive -y 1&> /dev/null
-apt-get purge zimbra-chat zimbra-drive -y 1&> /dev/null
+
+echo "Desativa Zimbra-Drive - Sim/Nao"
+read CONFIRMA
+case $CONFIRMA in
+s|S|Sim|sim)
+apt-get remove zimbra-drive --purge -y 1&> /dev/null
+$UsrZ 'zmzimletctl disable com_zextras_drive_open' 1&> /dev/null
 	 echo "+-------------------------------------------------+OK"
+        ;;
+n|N|Nao|nao)
+apt-get install zimbra-drive -y 1&> /dev/null
+$UsrZ 'zmzimletctl enable com_zextras_drive_open' 1&> /dev/null
+	 echo "+-------------------------------------------------+OK"
+       ;;
+*) echo  "Opcao Invalida" ;; esac
+
+echo "Desativa Zimbra-Chat - Sim/Nao"
+read CONFIRMA
+case $CONFIRMA in
+s|S|Sim|sim)
+apt-get remove zimbra-chat --purge -y 1&> /dev/null
+$UsrZ 'zmzimletctl disable com_zextras_chat_open' 1&> /dev/null
+	 echo "+-------------------------------------------------+OK"
+        ;;
+n|N|Nao|nao)
+apt-get install zimbra-chat -y 1&> /dev/null
+$UsrZ 'zmzimletctl enable com_zextras_chat_open' 1&> /dev/null
+	 echo "+-------------------------------------------------+OK"
+       ;;
+*) echo  "Opcao Invalida" ;; esac
 
 #Desativando Texto não Criptografado
 echo "Desativando Texto não Criptografado"
