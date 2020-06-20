@@ -99,6 +99,10 @@ MAIL_RECIPIENT="$EMAIL"
 LOCK_FILE="/tmp/$SERVERNAME.imapsync.lockfile"
 LOGFILE="ImapSync_log.txt"
 
+#Caminho do LOG
+#mkdir LOG_imapsync/
+#chmod 775 LOG_imapsync/
+
 #host1 Origem
 echo -n "Servidor de Origiem: "
 read HOST_ORG
@@ -162,7 +166,7 @@ PASSWORDADMIN_DESTINO="$PASSADMIN_DEST"
 UsrZ="su - zimbra -c"
 #ZMPROV="/opt/zimbra/bin/zmprov"
 $UsrZ 'for USER in $(zmprov -l gaa); do
-imapsync --addheader --nosyncacls --subscribe --syncinternaldates --host1 '$HOST1' --user1 '$USER' --authuser1 '$ADMIN_ORIGEM' --password1 '$PASSWORDADMIN_ORIGEM' --authmech1 PLAIN --host2 '$HOST2' --user2 '$USER' --authuser2 '$ADMIN_DESTINO' --password2 '$PASSWORDADMIN_DESTINO' --authmech2 PLAIN --noauthmd5
+imapsync --nolog --addheader --nosyncacls --subscribe --syncinternaldates --host1 '$HOST1' --user1 '$USER' --authuser1 '$ADMIN_ORIGEM' --password1 '$PASSWORDADMIN_ORIGEM' --authmech1 PLAIN --host2 '$HOST2' --user2 '$USER' --authuser2 '$ADMIN_DESTINO' --password2 '$PASSWORDADMIN_DESTINO' --authmech2 PLAIN --noauthmd5
 done'
         EMAIL
 }
@@ -186,7 +190,7 @@ echo "Sincronizando usuário $USER_NAME"
 TIME_NOW=$(date +"%Y-%m-%d %T")
 echo "Começar a sincronizar usuário $u1"
 echo "Iniciando $u1 $TIME_NOW" >> $LOGFILE
-imapsync --addheader --nosyncacls --syncinternaldates --host1 $HOST1 --user1 "$USER_NAME" --password1 "$p1" --host2 $HOST2 --user2 "$USER_NAME" --password2 "$p1" --noauthmd5
+imapsync --nolog --addheader --nosyncacls --syncinternaldates --host1 $HOST1 --user1 "$USER_NAME" --password1 "$p1" --host2 $HOST2 --user2 "$USER_NAME" --password2 "$p1" --noauthmd5
 #Para importar do GMail
 #imapsync --addheader --host1 $HOST1 --ssl1 --user1 "$USER_NAME" --password1 "$p1" --host2 $HOST2 --ssl2 --user2 "$USER_NAME" --password2 "$p1" --noauthmd5 --maxbytespersecond 10000 --automap --exclude "\[Gmail\]$"
 TIME_NOW=$(date +"%Y-%m-%d %T")
