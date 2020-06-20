@@ -34,10 +34,10 @@ fi
      echo "+-------------------------------------------------+"
      echo "|           Utilitario para Zimbra                |"
      echo "+-------------------------------------------------+"
-     echo "| Exportar / Importar Contas do Zimbra    v1.6    |"
+     echo "| Exportar / Importar Contas do Zimbra    v1.7    |"
      echo "+-------------------------------------------------+"
      echo "| Escrito por:                                    |"
-     echo "| Thiago Castro - www.hostlp.net                  |"
+     echo "| Thiago Castro - www.hostlp.cloud                |"
      echo "+-------------------------------------------------+"
      echo
      echo $dir
@@ -72,7 +72,7 @@ fi
 	zmprov=/opt/zimbra/bin/zmprov
 	zmmailbox=/opt/zimbra/bin/zmmailbox
 	ldapsearch=/opt/zimbra/common/bin/ldapsearch
-	DOMAIN=`hostname`
+	DOMAIN=`hostname -d`
 	DEST="/opt/zimbra/backup/$DOMAIN"
 	cp -rf $DEST /tmp/$DOMAIN-BKP-$(date "+%Y%m%d")
 	mkdir $DEST/cos $DEST/dominio $DEST/contas $DEST/contatos $DEST/agendas $DEST/listas $DEST/alias $DEST/assinaturas $DEST/filtros -p
