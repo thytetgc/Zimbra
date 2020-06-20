@@ -8,11 +8,11 @@ echo "[`date`] ==== Inicio de rotina..."
 
 clear
 
-#Checa se o usuario é Zimbra
+#Checa se o usuario é root
 LOCAL_USER=`id -u -n`
 
-if [ $LOCAL_USER != "zimbra" ] ; then
-	echo "     Rodar como usuario Zimbra"
+if [ $LOCAL_USER != "root" ] ; then
+	echo "     Rodar como usuario root"
 	echo "     saindo..."
 	echo ""
 	exit
@@ -25,13 +25,13 @@ fi
 	codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
 	kernel="Kernel				 : `uname -r`"
 	arquitetura="Arquitetura	 : `uname -m`"
-	versaozimbra="Versao Zimbra  : `zmcontrol -v`"
+	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra                |"
+    echo "|           Utilitario para Zimbra  v1.0          |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
-    #echo "| Escrito por:                                    |"
-    #echo "| Thiago Castro - www.hostlp.net                  |"
+    echo "| Escrito por:                                    |"
+    echo "| Thiago Castro - www.hostlp.cloud                |"
     echo "+-------------------------------------------------+"
     echo
     echo $dir
@@ -60,90 +60,64 @@ fi
 	echo "==================EXECUTANDO======================="
 	echo
 
-choose_domain() {
-	clear
-	if [ ! -z '$1' ] ; then
-		if [ "$1" == "fail" ] ; then 
-			echo "     !!! Dominio $USER_EMAIL não existe !!!"
-			echo ""
-		fi
-	fi
-	echo "#########################################################"
-	read -p '#     Digite o nome do domínio: ' DOMAIN
-
-	DOMAIN_CHECK=`zmprov gad |grep -E ^$DOMAIN |wc -l`
-}
-choose_user() {
-	clear
-	if [ ! -z '$1' ] ; then
-		if [ "$1" == "fail" ] ; then 
-			echo "     !!! $USER não existe !!!"
-			echo ""
-		fi
-	fi
-	echo "#########################################################"
-	read -p '#     Digite o email do usuário: ' USER_EMAIL
-
-#	echo "zmprov gaa $DOMAIN |grep -E ^$USER_EMAIL "
-	USER_CHECK=`zmprov -l gaa $DOMAIN |grep -E ^$USER_EMAIL |wc -l`
-}
-delegateAdmin() {
-
-		zmprov ma $USER_EMAIL zimbraIsDelegatedAdminAccount TRUE
-		zmprov ma $USER_EMAIL zimbraAdminConsoleUIComponents cartBlancheUI \
-		zimbraAdminConsoleUIComponents domainListView zimbraAdminConsoleUIComponents \
-		accountListView zimbraAdminConsoleUIComponents DLListView
-		zmprov ma $USER_EMAIL zimbraDomainAdminMaxMailQuota 0
-		zmprov grantRight domain $DOMAIN usr $USER_EMAIL +createAccount
-		zmprov grantRight domain $DOMAIN usr $USER_EMAIL +createAlias
-		zmprov grantRight domain $DOMAIN usr $USER_EMAIL +createCalendarResource
-		zmprov grantRight domain $DOMAIN usr $USER_EMAIL +createDistributionList
-		zmprov grantRight domain $DOMAIN usr $USER_EMAIL +deleteAlias
-		zmprov grantRight domain $DOMAIN usr $USER_EMAIL +listDomain
-		zmprov grantRight domain $DOMAIN usr $USER_EMAIL +domainAdminRights
-		zmprov grantRight domain $DOMAIN usr $USER_EMAIL +configureQuota
-		zmprov grantRight domain $DOMAIN usr $USER_EMAIL set.account.zimbraAccountStatus
-		zmprov grantRight domain $DOMAIN usr $USER_EMAIL set.account.sn
-		zmprov grantRight domain $DOMAIN usr $USER_EMAIL set.account.displayName
-		zmprov grantRight domain $DOMAIN usr $USER_EMAIL set.account.zimbraPasswordMustChange
-		zmprov grantRight account $USER_EMAIL usr $USER_EMAIL +deleteAccount
-		zmprov grantRight account $USER_EMAIL usr $USER_EMAIL +getAccountInfo
-		zmprov grantRight account $USER_EMAIL usr $USER_EMAIL +getAccountMembership
-		zmprov grantRight account $USER_EMAIL usr $USER_EMAIL +getMailboxInfo
-		zmprov grantRight account $USER_EMAIL usr $USER_EMAIL +listAccount
-		zmprov grantRight account $USER_EMAIL usr $USER_EMAIL +removeAccountAlias
-		zmprov grantRight account $USER_EMAIL usr $USER_EMAIL +renameAccount
-		zmprov grantRight account $USER_EMAIL usr $USER_EMAIL +setAccountPassword
-		zmprov grantRight account $USER_EMAIL usr $USER_EMAIL +viewAccountAdminUI
-		zmprov grantRight account $USER_EMAIL usr $USER_EMAIL +configureQuota
-		echo
-		echo "Feito! teste seu novo usuário admin"
-}
-#Start script
-choose_domain
-choose_user
-
-
-if [ $DOMAIN_CHECK -ne 1 ] ; then
-	choose_domain fail
-fi
-if [ $USER_CHECK -ne 1 ] ; then
-	choose_user fail
-fi
 clear
-echo ""
-echo "     Aplicando privilégios de administrador a $USER_EMAIL no domínio $DOMAIN"
-read -r -p "     Você tem certeza? (S/n) " ACCEPT_OPTION
-case $ACCEPT_OPTION in
-	[sS]* )
-		echo "Começando..."
-		delegateAdmin
-		;;
+	
+#Variavel
+UsrZ="su - zimbra -c"
 
-	*)
-		echo "Saindo..."
-		exit 0
+echo "Digite o nome do domínio"
+echo -n "Domínio: "
+read DOMINIO
+echo
+
+echo "Digite o e-mail do usuário"
+echo -n "Usuário: "
+read USUARIOS
+echo
+
+echo "Aperte <ENTER> para continuar e começar..."
+read 
+
+
+echo "Aplicando regras..."
+$UsrZ 'zmprov ma '$USUARIOS' zimbraIsDelegatedAdminAccount TRUE'
+$UsrZ 'zmprov ma '$USUARIOS' zimbraAdminConsoleUIComponents accountListView zimbraAdminConsoleUIComponents downloadsView zimbraAdminConsoleUIComponents DLListView zimbraAdminConsoleUIComponents aliasListView zimbraAdminConsoleUIComponents resourceListView'
+$UsrZ 'zmprov grr global usr '$USUARIOS' adminLoginCalendarResourceAs'
+$UsrZ 'zmprov grr global usr '$USUARIOS' domainAdminZimletRights'
+$UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' domainAdminRights'
+$UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' domainAdminConsoleRights'
+$UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' adminConsoleAliasRights'
+$UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' modifyAccount'
+$UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' countAlias'
+$UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' -configureAdminUI'
+$UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' -get.account.zimbraAdminConsoleUIComponents'
+$UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' -get.dl.zimbraAdminConsoleUIComponents'
+$UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' -set.account.zimbraIsDelegatedAdminAccount'
+$UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' -set.dl.zimbraIsAdminGroup'
+echo
+
+echo "Pode visualizaar e-mails? - Sim/Nao"
+read CONFIRMA
+case $CONFIRMA in
+s|S|Sim|sim)
+$UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' +adminLoginAs'
 		;;
-esac
+n|N|Nao|nao)
+$UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' -adminLoginAs'
+		;;
+*) echo  "Opcao Invalida" ;; esac
+echo
+
+echo "Pode visualizar dominios? - Sim/Nao"
+read CONFIRMA
+case $CONFIRMA in
+s|S|Sim|sim)
+$UsrZ 'zmprov ma '$USUARIOS' zimbraAdminConsoleUIComponents domainListView zimbraAdminConsoleUIComponents accountListView zimbraAdminConsoleUIComponents downloadsView zimbraAdminConsoleUIComponents DLListView zimbraAdminConsoleUIComponents aliasListView zimbraAdminConsoleUIComponents resourceListView'
+		;;
+n|N|Nao|nao)
+$UsrZ 'zmprov ma '$USUARIOS' zimbraAdminConsoleUIComponents accountListView zimbraAdminConsoleUIComponents downloadsView zimbraAdminConsoleUIComponents DLListView zimbraAdminConsoleUIComponents aliasListView zimbraAdminConsoleUIComponents resourceListView'
+		;;
+*) echo  "Opcao Invalida" ;; esac
+echo
 
 echo "[`date`] ==== Fim de rotina..."
