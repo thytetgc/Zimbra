@@ -34,7 +34,7 @@ fi
      echo "+-------------------------------------------------+"
      echo "|           Utilitario para Zimbra                |"
      echo "+-------------------------------------------------+"
-     echo "| 		Exportar Contas do Zimbra v1.9           |"
+     echo "| 		Exportar Contas do Zimbra v1.10           |"
      echo "+-------------------------------------------------+"
      echo "| Escrito por:                                    |"
      echo "| Thiago Castro - www.hostlp.cloud                |"
@@ -65,8 +65,7 @@ fi
 	 echo
 
 
-# Obtemos uma lista de todas as contas do servidor
-#	source ~/bin/zmshutil
+# EXPORTAÇÃO TOTAL
 	source /opt/zimbra/bin/zmshutil
 	zmsetvars
 	zmprov=/opt/zimbra/bin/zmprov
@@ -75,7 +74,7 @@ fi
 	DOMAIN=`hostname -d`
 	DEST="/opt/zimbra/backup/$DOMAIN"
 	mv $DEST /tmp/$DOMAIN-BKP-$(date "+%Y%m%d")
-	mkdir $DEST/cos $DEST/dominio $DEST/contas $DEST/contatos $DEST/agendas $DEST/listas $DEST/alias $DEST/assinaturas $DEST/filtros -p
+	mkdir $DEST/cos $DEST/dominio $DEST/contas $DEST/contatos $DEST/listas $DEST/alias $DEST/assinaturas $DEST/filtros $DEST/briefcase $DEST/agendas -p 2>/dev/null
 	chown zimbra:zimbra $DEST -R
 	clear
 	
@@ -83,8 +82,8 @@ fi
 
 	echo "Exportando COS..."
 	echo
-	$zmprov gac | tee -a $DEST/cos/cos
-	$ldapsearch -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -b '' -LLL "(objectclass=zimbraCOS)" > $DEST/cos/cos.ldiff
+$zmprov gac | tee -a $DEST/cos/cos
+$ldapsearch -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -b '' -LLL "(objectclass=zimbraCOS)" > $DEST/cos/cos.ldiff
 	echo "+-------------------------------------------------+OK"
 	echo
 
@@ -99,74 +98,66 @@ $zmprov gad | tee -a $DEST/dominio/dominio
 	echo
 	rm -rf $DEST/contas/*
 	/opt/zimbra/bin/zmhostname > $DEST/server_old
-$zmprov gaaa | tee -a $DEST/contas/admins
-$zmprov -l gaa | tee -a $DEST/contas/usuarios
+$zmprov -l gaaa | egrep -v "^virus|^ham|^spam|^galsync" | tee -a $DEST/contas/admins 2>/dev/null
+$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | tee -a $DEST/contas/usuarios 2>/dev/null
 for user in `cat $DEST/contas/usuarios`; do $ldapsearch -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -b '' -LLL "(zimbraMailDeliveryAddress=$user)" > $DEST/contas/$user.ldiff ; done
 	echo "+-------------------------------------------------+OK"
 	echo
 
 	echo "Exportando Contatos..."
 	echo
-$zmprov -l gaa | while read conta; do $zmmailbox -z -m $conta gru "/Contacts" > $DEST/contatos/"$conta".csv ; zmmailbox -z -m $conta gru "/Emailed Contacts" > $DEST/contatos/"$conta".emailed.csv
-	echo "$conta" ;
-done	
+$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmmailbox -z -m $user gru "/Contacts" > $DEST/contatos/"$user".csv ; zmmailbox -z -m $user gru "/Emailed Contacts" > $DEST/contatos/"$user".emailed.csv ; done
+	echo "+-------------------------------------------------+OK"
+	echo
+
+	echo "Exportando Briefcase..."
+	echo
+$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmmailbox -z -m $user gru "/Briefcase/?fmt=tgz" > $DEST/briefcase/"$user".tgz ; done 2>/dev/null
 	echo "+-------------------------------------------------+OK"
 	echo
 
 	echo "Exportando Agendas..."
 	echo
 	cd $DEST/agendas
-for user in $($zmprov -l gaa | sort); do
-        $zmmailbox  -z -m $user getRestURL "/calendar?fmt=ics" > $DEST/agendas/$user.ics ;
-	echo "$user" ;
-done
+$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmmailbox -z -m $user gru "/Calendar?fmt=ics" > $DEST/agendas/"$user".ics ; done 2>/dev/null
 	echo "+-------------------------------------------------+OK"
 	echo
 	
 	echo "Exportando Listas de Distribuição..."
 	echo
-$zmprov gadl | tee -a $DEST/listas/listas
-for lists in `cat $DEST/listas/listas`; do $zmprov gdlm $lists > $DEST/listas/$lists ; done
+$zmprov gadl | while read listas; do zmprov gdlm $listas > $DEST/listas/$listas ; done
 	echo "+-------------------------------------------------+OK"
 	echo
 
 	echo "Exportando Alias..."
 	echo
-for user in `cat $DEST/contas/usuarios`; do $zmprov ga $user | grep zimbraMailAlias | awk '{print $2}' | tee -a $DEST/alias/$user ; done
-find $DEST/alias/. -type f -empty | xargs -n1 rm -v 1&> /dev/null
+$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmprov ga $user | grep zimbraMailAlias | awk '{print $2}' | tee -a $DEST/alias/$user ; done
 	echo "+-------------------------------------------------+OK"
 	echo
 
 	echo "Exportando Assinaturas..."
 	echo
-for user in `cat $DEST/contas/usuarios`; do
-$zmprov ga $user zimbraPrefMailSignatureHTML > /tmp/assinatura;
-	sed -i -e "1d" /tmp/assinatura ;
-	sed 's/zimbraPrefMailSignatureHTML: //g' /tmp/assinatura > $DEST/assinaturas/$user.assinatura ;
-	rm -rf /tmp/assinatura;
-	`$zmprov ga $user zimbraSignatureName > /tmp/name` ;
-	sed -i -e "1d" /tmp/name ;
-	sed 's/zimbraSignatureName: //g' /tmp/name > $DEST/assinaturas/$user.name ;
-	rm -rf /tmp/name ;
-	echo "$user";
-done
+$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmprov gsig $user > $DEST/assinaturas/"$user" ; done
+	sed -i '/zimbraSignatureId/d' $DEST/assinaturas/"$user" ;
+	sed -i '/# name/d' $DEST/assinaturas/"$user" ;
 	echo "+-------------------------------------------------+OK"
 	echo
 
 	echo "Exportando Filtros..."
 	echo
-for user in `cat $DEST/contas/usuarios`; do
-$zmprov ga $user zimbraMailSieveScript > /tmp/filtros
+for user in `cat $DEST/contas/usuarios`; do $zmprov ga $user zimbraMailSieveScript > /tmp/filtros
     sed -i -e "1d" /tmp/filtros
     sed 's/zimbraMailSieveScript: //g' /tmp/filtros  > $DEST/filtros/$user.filtros
-    rm -f /tmp/filtros
-    echo "$user"
 done 
 	echo "+-------------------------------------------------+OK"
 	echo
 	
+	echo "Limpando arquivos vazios..."
+	echo
+	find $DEST/ -type f -empty -exec rm -rf {} \; 2&> /dev/null
+	find $DEST/ -type f -empty -exec rm -rf {} \; 2&> /dev/null
 	chown zimbra:zimbra $DEST -R
-	echo "Dados Exportadas"
+	echo "Dados Exportados"
  
 echo "[`date`] ==== Fim da rotina..."
 
