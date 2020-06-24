@@ -34,7 +34,7 @@ fi
      echo "+-------------------------------------------------+"
      echo "|           Utilitario para Zimbra                |"
      echo "+-------------------------------------------------+"
-     echo "| 		Exportar Contas do Zimbra v1.14          |"
+     echo "| 		Exportar Contas do Zimbra v1.15          |"
      echo "+-------------------------------------------------+"
      echo "| Escrito por:                                    |"
      echo "| Thiago Castro - www.hostlp.cloud                |"
@@ -146,10 +146,10 @@ zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmpr
 
 	echo "Exportando Filtros..."
 	echo
-for user in `cat $DEST/contas/usuarios`; do $zmprov ga $user zimbraMailSieveScript > /tmp/filtros
+for user in `cat $DEST/contas/usuarios`; do zmprov ga $user zimbraMailSieveScript > /tmp/filtros
     sed -i -e "1d" /tmp/filtros
     sed 's/zimbraMailSieveScript: //g' /tmp/filtros  > $DEST/filtros/$user.filtros
-    echo "$user -- OK" ; done  
+    echo "$user -- OK" ; done 
 	echo "+-------------------------------------------------+OK"
 	echo
 	
