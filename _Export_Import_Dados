@@ -34,7 +34,7 @@ Principal() {
      echo "+-------------------------------------------------+"
      echo "|           Utilitario para Zimbra                |"
      echo "+-------------------------------------------------+"
-     echo "| Exportar / Importar Contas do Zimbra    v1.14   |"
+     echo "| Exportar / Importar Contas do Zimbra    v1.15   |"
      echo "+-------------------------------------------------+"
      echo "| Escrito por:                                    |"
      echo "| Thiago Castro - www.hostlp.cloud                |"
@@ -177,8 +177,8 @@ zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while re
 	
 	echo "Exportando Listas de Distribuição..."
 	echo
-zmprov gadl "$DOMAIN" > $DEST/listas/listas
-zmprov gadl "$DOMAIN" | while read user_listas; do zmprov gdlm $user_listas > $DEST/listas/$user_listas ; echo "$user_listas -- OK" ; done
+zmprov gadl |grep "$DOMAIN" > $DEST/listas/listas
+zmprov gadl |grep "$DOMAIN" | while read user_listas; do zmprov gdlm $user_listas > $DEST/listas/$user_listas ; echo "$user_listas -- OK" ; done
 	echo "+-------------------------------------------------+OK"
 	echo
 
@@ -198,8 +198,7 @@ zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while re
 
 	echo "Exportando Filtros..."
 	echo
-for user in `cat $DEST/contas/usuarios`; do
-zmprov ga $user zimbraMailSieveScript > /tmp/filtros
+for user in `cat $DEST/contas/usuarios`; do zmprov ga $user zimbraMailSieveScript > /tmp/filtros
     sed -i -e "1d" /tmp/filtros
     sed 's/zimbraMailSieveScript: //g' /tmp/filtros  > $DEST/filtros/$user.filtros
     echo "$user -- OK" ; done 
@@ -246,6 +245,7 @@ ldapadd -c -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_passwor
 	echo -n "Digite o nome da COS...: "
 	read COS
 	echo
+zmprov dc $COS
 ldapadd -c -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -f $DEST/cos/"$COS".ldiff
 		;;
 	*) echo  "Opcao Invalida" ;; esac
