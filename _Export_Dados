@@ -34,7 +34,7 @@ fi
      echo "+-------------------------------------------------+"
      echo "|           Utilitario para Zimbra                |"
      echo "+-------------------------------------------------+"
-     echo "| 		Exportar Contas do Zimbra v1.10           |"
+     echo "| 		Exportar Contas do Zimbra v1.12          |"
      echo "+-------------------------------------------------+"
      echo "| Escrito por:                                    |"
      echo "| Thiago Castro - www.hostlp.cloud                |"
@@ -100,44 +100,44 @@ $zmprov gad | tee -a $DEST/dominio/dominio
 	/opt/zimbra/bin/zmhostname > $DEST/server_old
 $zmprov -l gaaa | egrep -v "^virus|^ham|^spam|^galsync" | tee -a $DEST/contas/admins 2>/dev/null
 $zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | tee -a $DEST/contas/usuarios 2>/dev/null
-for user in `cat $DEST/contas/usuarios`; do $ldapsearch -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -b '' -LLL "(zimbraMailDeliveryAddress=$user)" > $DEST/contas/$user.ldiff ; done
+for user in `cat $DEST/contas/usuarios`; do $ldapsearch -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -b '' -LLL "(zimbraMailDeliveryAddress=$user)" > $DEST/contas/$user.ldiff ; echo "$user -- OK" ; done
 	echo "+-------------------------------------------------+OK"
 	echo
 
 	echo "Exportando Contatos..."
 	echo
-$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmmailbox -z -m $user gru "/Contacts" > $DEST/contatos/"$user".csv ; zmmailbox -z -m $user gru "/Emailed Contacts" > $DEST/contatos/"$user".emailed.csv ; done
+$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmmailbox -z -m $user gru "/Contacts" > $DEST/contatos/"$user".csv ; zmmailbox -z -m $user gru "/Emailed Contacts" > $DEST/contatos/"$user".emailed.csv ; echo "$user -- OK" ; done
 	echo "+-------------------------------------------------+OK"
 	echo
 
 	echo "Exportando Briefcase..."
 	echo
-$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmmailbox -z -m $user gru "/Briefcase/?fmt=tgz" > $DEST/briefcase/"$user".tgz ; done 2>/dev/null
+$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmmailbox -z -m $user gru "/Briefcase/?fmt=tgz" > $DEST/briefcase/"$user".tgz ; echo "$user -- OK" ; done 2>/dev/null
 	echo "+-------------------------------------------------+OK"
 	echo
 
 	echo "Exportando Agendas..."
 	echo
 	cd $DEST/agendas
-$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmmailbox -z -m $user gru "/Calendar?fmt=ics" > $DEST/agendas/"$user".ics ; done 2>/dev/null
+$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmmailbox -z -m $user gru "/Calendar?fmt=ics" > $DEST/agendas/"$user".ics ; echo "$user -- OK" ; done 2>/dev/null
 	echo "+-------------------------------------------------+OK"
 	echo
 	
 	echo "Exportando Listas de Distribuição..."
 	echo
-$zmprov gadl | while read listas; do zmprov gdlm $listas > $DEST/listas/$listas ; done
+$zmprov gadl | while read listas; do zmprov gdlm $listas > $DEST/listas/$listas ; echo "$user -- OK" ; done
 	echo "+-------------------------------------------------+OK"
 	echo
 
 	echo "Exportando Alias..."
 	echo
-$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmprov ga $user | grep zimbraMailAlias | awk '{print $2}' | tee -a $DEST/alias/$user ; done
+$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmprov ga $user | grep zimbraMailAlias | awk '{print $2}' | tee -a $DEST/alias/$user ; echo "$user -- OK" ; done
 	echo "+-------------------------------------------------+OK"
 	echo
 
 	echo "Exportando Assinaturas..."
 	echo
-$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmprov gsig $user > $DEST/assinaturas/"$user" ; done
+$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmprov gsig $user > $DEST/assinaturas/"$user" ; echo "$user -- OK" ; done
 	sed -i '/zimbraSignatureId/d' $DEST/assinaturas/"$user" ;
 	sed -i '/# name/d' $DEST/assinaturas/"$user" ;
 	echo "+-------------------------------------------------+OK"
@@ -154,8 +154,8 @@ done
 	
 	echo "Limpando arquivos vazios..."
 	echo
-	find $DEST/ -type f -empty -exec rm -rf {} \; 2&> /dev/null
-	find $DEST/ -type f -empty -exec rm -rf {} \; 2&> /dev/null
+	find $DEST/ -type f -empty -exec rm -rf {} \;
+	find $DEST/ -type f -empty -exec rm -rf {} \;
 	chown zimbra:zimbra $DEST -R
 	echo "Dados Exportados"
  
