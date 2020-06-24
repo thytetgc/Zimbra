@@ -27,11 +27,11 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra  v1.8          |"
+    echo "|           Utilitario para Zimbra  v1.10         |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
-    echo "| Thiago Castro - www.hostlp.cloud                  |"
+    echo "| Thiago Castro - www.hostlp.cloud                |"
     echo "+-------------------------------------------------+"
     echo
     echo $dir
@@ -401,10 +401,11 @@ $UsrZ 'for cos in `zmprov gac`; do zmprov mc $cos zimbraPrefMailDefaultCharset U
 echo "Aplicando politica de DOSFilter"
 $UsrZ 'zmprov mcf zimbraHttpDosFilterDelayMillis 20'
 $UsrZ 'zmprov mcf zimbraHttpDosFilterMaxRequestsPerSec 100'
-$UsrZ 'zmprov mcf zimbraInvalidLoginFilterDelayInMinBetwnReqBeforeReinstating 30'
-$UsrZ 'zmprov mcf zimbraInvalidLoginFilterMaxFailedLogin 10'
+$UsrZ 'zmprov mcf zimbraInvalidLoginFilterDelayInMinBetwnReqBeforeReinstating 10'
+$UsrZ 'zmprov mcf zimbraInvalidLoginFilterMaxFailedLogin 15'
 $UsrZ 'zmprov mcf zimbraInvalidLoginFilterReinstateIpTaskIntervalInMin 5'
 	 echo "+-------------------------------------------------+OK"
+#https://wiki.zimbra.com/wiki/DoSFilter	 
 
 #Aplicando Tunning de Conexões
 echo "Aplicando Tunning de Conexões"
