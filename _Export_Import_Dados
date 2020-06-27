@@ -2,7 +2,7 @@
 
 #+----------------GERANDO LOG-----------------------+OK"
 SCRIPT=`basename $0`
-LOG=`echo $DEST/$SCRIPT.log | sed s/'.sh'/'.log'/g`
+LOG=`echo $SCRIPT.log | sed s/'.sh'/'.log'/g`
 exec &> >(tee -a "$LOG")
 echo "[`date`] ==== Inicio de rotina..."
 #+----------------GERANDO LOG-----------------------+OK"
@@ -23,7 +23,8 @@ Principal() {
 	clear
      dir="Diretorio Atual		 : `pwd`"
 	 hostname="Hostname			 : `hostname --fqdn`"
-	 ip="IP						 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
+	 ip="IP						 : `wget -qO - icanhazip.com`"
+	 #ip="IP					 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
      versaoso="Versao S.O.		 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
 	 release="Release			 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
 	 codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
@@ -34,7 +35,7 @@ Principal() {
      echo "+-------------------------------------------------+"
      echo "|           Utilitario para Zimbra                |"
      echo "+-------------------------------------------------+"
-     echo "| Exportar / Importar Contas do Zimbra    v1.15   |"
+     echo "| Exportar / Importar Contas do Zimbra    v1.23   |"
      echo "+-------------------------------------------------+"
      echo "| Escrito por:                                    |"
      echo "| Thiago Castro - www.hostlp.cloud                |"
@@ -90,9 +91,10 @@ Exportar1() {
 	clear
 	source /opt/zimbra/bin/zmshutil
 	zmsetvars
-	zmprov=/opt/zimbra/bin/zmprov
-	zmmailbox=/opt/zimbra/bin/zmmailbox
-	ldapsearch=/opt/zimbra/common/bin/ldapsearch
+	zmprov="/opt/zimbra/bin/zmprov"
+	zmmailbox="/opt/zimbra/bin/zmmailbox"
+	ldapsearch="/opt/zimbra/common/bin/ldapsearch"
+	ldapadd="/opt/zimbra/common/bin/ldapadd"
 	echo "Digite o dominio completo para exportar os dados ou deixe vazio"
 	echo "para exportar os dados de todos os dominios cadastrados"
 	echo
@@ -100,12 +102,13 @@ Exportar1() {
 	read DOMAIN
 	echo
 	cd /opt/zimbra/backup/
+	NULL="2>/dev/null"
 	HOST=`hostname -d`
 	DEST="/opt/zimbra/backup/"$DOMAIN""
-	mv -rf $DEST tmp/$DOMAIN-BKP-$(date "+%Y%m%d") 2>/dev/null
-	mkdir $DEST/cos $DEST/dominio $DEST/contas $DEST/contatos $DEST/listas $DEST/alias $DEST/assinaturas $DEST/filtros $DEST/briefcase $DEST/agendas -p 2>/dev/null
+	mkdir /tmp/$DOMAIN-BKP-$(date "+%Y%m%d") 2>/dev/null
+	\mv $DEST/* /tmp/$DOMAIN-BKP-$(date "+%Y%m%d") 2>/dev/null
+	mkdir $DEST/cos $DEST/dominio $DEST/contas $DEST/contatos $DEST/listas $DEST/alias $DEST/assinaturas $DEST/filtros $DEST/briefcase $DEST/agendas $DEST/chats $DEST/documentos $DEST/tarefas -p 2>/dev/null
 	chown zimbra:zimbra $DEST -R
-	echo "+-------------------------------------------------+OK"
 
 #######################################################
 		
@@ -113,13 +116,13 @@ Exportar1() {
 	read CONFIRMA
 	case $CONFIRMA in
 	s|S|Sim|sim)
-ldapsearch -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -b '' -LLL "(objectclass=zimbraCOS)" > $DEST/cos/cos.ldiff
+$ldapsearch -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -b '' -LLL "(objectclass=zimbraCOS)" > $DEST/cos/cos.ldiff
 		;;
 	n|N|Nao|nao)
 	echo -n "Digite o nome do COS...: "
 	read COS
 	echo
-ldapsearch -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -b '' -LLL "(objectclass=zimbraCOS)" > $DEST/cos/"$COS".ldiff
+$ldapsearch -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -b '' -LLL "(objectclass=zimbraCOS)" > $DEST/cos/"$COS".ldiff
 	sed -i '/cn='$COS'/,$!d' $DEST/cos/"$COS".ldiff
 	sed -i '/^$/,$d' $DEST/cos/"$COS".ldiff
 		;;
@@ -129,18 +132,18 @@ ldapsearch -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_passwor
 	
 	echo "Exportando Dominio..."
 	echo
-	rm -rf $DEST/dominio/dominio
-zmprov gad | grep "$DOMAIN" | tee -a $DEST/dominio/dominio
+$zmprov gad | grep "$DOMAIN" | tee -a $DEST/dominio/dominio
 	echo "+-------------------------------------------------+OK"
 	echo
 	
 	echo "Exportando Contas..."
 	echo
-	rm -rf $DEST/contas/*
 	zmhostname > $DEST/server_old
-zmprov -l gaaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" > $DEST/contas/admins
-zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" > $DEST/contas/usuarios
-for user in `cat $DEST/contas/usuarios`; do ldapsearch -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -b '' -LLL "(zimbraMailDeliveryAddress=$user)" > $DEST/contas/$user.ldiff ; echo "$user -- OK" ; done
+$zmprov -l gaaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" > $DEST/contas/admins
+$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" > $DEST/contas/usuarios
+for user in `cat $DEST/contas/usuarios`; do $ldapsearch -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -b '' -LLL "(zimbraMailDeliveryAddress=$user)" > $DEST/contas/$user.ldiff
+	printf 'OK --> '
+	echo "$user" ; done
 	echo "+-------------------------------------------------+OK"
 	echo
 
@@ -148,49 +151,103 @@ for user in `cat $DEST/contas/usuarios`; do ldapsearch -x -H $ldap_master_url -D
 	read CONFIRMA
 	case $CONFIRMA in
 	s|S|Sim|sim)
-zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmmailbox -z -m $user gru "/?fmt=tgz" > $DEST/contas/"$user".tgz ; echo "$user -- OK" ; done
+$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/?fmt=tgz" > $DEST/contas/"$user".tgz
+	printf 'OK --> '
+	echo "$user" ; done
 		;;
 	n|N|Nao|nao)
 		;;
 	*) echo  "Opcao Invalida" ;; esac
 	echo "+-------------------------------------------------+OK"
 	echo
-	
-	echo "Exportando Contatos..."
-	echo
-zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmmailbox -z -m $user gru "/Contacts" > $DEST/contatos/"$user".csv ; zmmailbox -z -m $user gru "/Emailed Contacts" > $DEST/contatos/"$user".emailed.csv ; echo "$user -- OK" ; done
-	echo "+-------------------------------------------------+OK"
-	echo
 
 	echo "Exportando Briefcase..."
 	echo
-zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmmailbox -z -m $user gru "/Briefcase/?fmt=tgz" > $DEST/briefcase/"$user".tgz ; echo "$user -- OK" ; done 2>/dev/null
+$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Briefcase/?fmt=tgz" > $DEST/briefcase/"$user"-briefcase.tgz 2>/dev/null
+	printf 'OK --> '
+	echo "$user" ; done 
 	echo "+-------------------------------------------------+OK"
 	echo
 
+#	echo "Exportando Agendas..."
+#	echo
+#$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Calendar?fmt=ics" > $DEST/agendas/"$user"-agendas.ics 2>/dev/null
+#	printf 'OK --> '
+#	echo "$user" ; done 
+#	echo "+-------------------------------------------------+OK"
+#	echo
+
 	echo "Exportando Agendas..."
 	echo
-	cd $DEST/agendas
-zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmmailbox -z -m $user gru "/Calendar?fmt=ics" > $DEST/agendas/"$user".ics ; echo "$user -- OK" ; done 2>/dev/null
+$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Calendar/?fmt=tgz" > $DEST/agendas/"$user"-agendas.tgz 2>/dev/null
+	printf 'OK --> '
+	echo "$user" ; done 
 	echo "+-------------------------------------------------+OK"
 	echo
-	
+
+	echo "Exportando Chats..."
+	echo
+$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Chats/?fmt=tgz" > $DEST/chats/"$user"-chats.tgz 2>/dev/null
+	printf 'OK --> '
+	echo "$user" ; done 
+	echo "+-------------------------------------------------+OK"
+	echo
+
+#	echo "Exportando Contatos..."
+#	echo
+#$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Contacts" > $DEST/contatos/"$user"-contatos.csv ; $zmmailbox -z -m $user gru "/Emailed Contacts" > $DEST/contatos/"$user"-emailed.csv  2>/dev/null
+#	printf 'OK --> '
+#	echo "$user" ; done
+#	echo "+-------------------------------------------------+OK"
+#	echo
+
+	echo "Exportando Contatos..."
+	echo
+$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Contacts/?fmt=tgz" > $DEST/contatos/"$user"-contatos.tgz 2>/dev/null
+$zmmailbox -z -m $user gru "/Emailed Contacts/?fmt=tgz" > $DEST/contatos/"$user"-emailed.tgz
+	printf 'OK --> '
+	echo "$user" ; done
+	echo "+-------------------------------------------------+OK"
+	echo
+
+	echo "Exportando Documentos..."
+	echo
+$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Notebook/?fmt=tgz" > $DEST/documentos/"$user"-documentos.tgz 2>/dev/null
+	printf 'OK --> '
+	echo "$user" ; done 
+	echo "+-------------------------------------------------+OK"
+	echo
+
+	echo "Exportando Tarefas..."
+	echo
+$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Tasks/?fmt=tgz" > $DEST/tarefas/"$user"-tarefas.tgz 2>/dev/null
+	printf 'OK --> '
+	echo "$user" ; done 
+	echo "+-------------------------------------------------+OK"
+	echo
+
 	echo "Exportando Listas de Distribuição..."
 	echo
-zmprov gadl |grep "$DOMAIN" > $DEST/listas/listas
-zmprov gadl |grep "$DOMAIN" | while read user_listas; do zmprov gdlm $user_listas > $DEST/listas/$user_listas ; echo "$user_listas -- OK" ; done
+$zmprov gadl |grep "$DOMAIN" > $DEST/listas/listas
+$zmprov gadl |grep "$DOMAIN" | while read user_listas; do $zmprov gdlm $user_listas > $DEST/listas/$user_listas
+	printf 'OK --> '
+	echo "$user_listas -- OK" ; done
 	echo "+-------------------------------------------------+OK"
 	echo
 
 	echo "Exportando Alias..."
 	echo
-zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmprov ga $user | grep zimbraMailAlias | awk '{print $2}' > $DEST/alias/$user ; echo "$user -- OK" ; done
+$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmprov ga $user | grep zimbraMailAlias | awk '{print $2}' > $DEST/alias/"$user"
+	printf 'OK --> '
+	echo "$user" ; done
 	echo "+-------------------------------------------------+OK"
 	echo
 
 	echo "Exportando Assinaturas..."
 	echo
-zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmprov gsig $user > $DEST/assinaturas/"$user" ; echo "$user -- OK" ; done
+$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmprov gsig $user > $DEST/assinaturas/"$user"
+	printf 'OK --> '
+	echo "$user" ; done
 	sed -i '/zimbraSignatureId/d' $DEST/assinaturas/"$user" ;
 	sed -i '/# name/d' $DEST/assinaturas/"$user" ;
 	echo "+-------------------------------------------------+OK"
@@ -198,17 +255,17 @@ zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while re
 
 	echo "Exportando Filtros..."
 	echo
-for user in `cat $DEST/contas/usuarios`; do zmprov ga $user zimbraMailSieveScript > /tmp/filtros
+for user in `cat $DEST/contas/usuarios`; do $zmprov ga $user zimbraMailSieveScript > /tmp/filtros
     sed -i -e "1d" /tmp/filtros
     sed 's/zimbraMailSieveScript: //g' /tmp/filtros  > $DEST/filtros/$user.filtros
-    echo "$user -- OK" ; done 
+    echo "$user" ; done 
 	echo "+-------------------------------------------------+OK"
 	echo
 
 	echo "Limpando arquivos vazios..."
 	echo
-	find $DEST/ -type f -empty -exec rm -rf {} \;
-	find $DEST/ -type f -empty -exec rm -rf {} \;
+	cd $DEST
+	find . -type f -empty -exec rm -rf {} \;
 	chown zimbra:zimbra $DEST -R
 	echo "Dados Exportados"
     echo "Pressione qualquer tecla para continuar..."
@@ -222,31 +279,47 @@ Importar1() {
 # IMPORTAÇÂO POR DOMINIO
 # já com todos os dados no novo servidor
 	clear
-	source ~/bin/zmshutil
+	source /opt/zimbra/bin/zmshutil
 	zmsetvars
+	zmprov="/opt/zimbra/bin/zmprov"
+	zmmailbox="/opt/zimbra/bin/zmmailbox"
+	ldapsearch="/opt/zimbra/common/bin/ldapsearch"
+	ldapadd="/opt/zimbra/common/bin/ldapadd"
 	echo "Importar todo os dados de um dominio"
 	echo -n "Digite dominio completo...: "
 	read DOMAIN
 	echo
 	cd /opt/zimbra/backup/
+	NULL=`1&> /dev/null 2&> /dev/null`
 	HOST=`hostname -d`
 	DEST="/opt/zimbra/backup/"$DOMAIN""
 	chown zimbra:zimbra $DEST -R
 		
 #######################################################
 
+	echo "Limpando arquivos vazios..."
+	echo
+	cd $DEST
+	find $DEST -type f -empty -exec rm -rf {} \;
+	echo "+-------------------------------------------------+OK"
+	echo
+
 	echo "Importar todas COS? - Sim/Nao"
 	read CONFIRMA
 	case $CONFIRMA in
 	s|S|Sim|sim)
-ldapadd -c -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -f $DEST/cos/cos.ldiff
+$ldapadd -c -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -f $DEST/cos/cos.ldiff | egrep -v "^adding|^$"
 		;;
 	n|N|Nao|nao)
 	echo -n "Digite o nome da COS...: "
 	read COS
 	echo
-zmprov dc $COS
-ldapadd -c -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -f $DEST/cos/"$COS".ldiff
+$zmprov dc $COS
+$ldapadd -c -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -f $DEST/cos/"$COS".ldiff | egrep -v "^adding|^$"
+	sed -i '/cn='$COS'/,$!d' $DEST/cos/"$COS".ldiff
+	sed -i '/^$/,$d' $DEST/cos/"$COS".ldiff
+	printf 'OK --> '
+	echo "$COS"
 		;;
 	*) echo  "Opcao Invalida" ;; esac
 	echo "+-------------------------------------------------+OK"
@@ -254,15 +327,9 @@ ldapadd -c -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_passwor
 
 	echo "Importando Dominios..."
 	echo
-for domain in `cat $DEST/dominio/dominio`; do zmprov cd $domain zimbraAuthMech zimbra 2>/dev/null ; echo $domain ;done
-	echo "+-------------------------------------------------+OK"
-	echo
-
-	echo "Limpando arquivos vazios..."
-	echo
-	cd $DEST
-	find $DEST -type f -empty -exec rm -rf {} \;
-	find $DEST -type f -empty -exec rm -rf {} \;
+for domain in `cat $DEST/dominio/dominio`; do $zmprov cd $domain zimbraAuthMech zimbra 2>/dev/null | egrep -v "^adding|^$"
+	printf 'OK --> '
+	echo "$domain" ; done
 	echo "+-------------------------------------------------+OK"
 	echo
 
@@ -271,7 +338,9 @@ for domain in `cat $DEST/dominio/dominio`; do zmprov cd $domain zimbraAuthMech z
 	SERVEROL="`cat $DEST/server_old`"
 	SERVERNE="`zmhostname`"
 	find $DEST -type f -name '*.ldiff' -exec sed -i "s/$SERVEROL/$SERVERNE/g" "{}" \;
-for user in `cat $DEST/contas/usuarios`; do ldapadd -x -H $ldap_master_url -D $zimbra_ldap_userdn -c -w $zimbra_ldap_password -f $DEST/contas/$user.ldiff 2>/dev/null ; echo "$user -- OK" ; done
+for user in `cat $DEST/contas/usuarios`; do $ldapadd -x -H $ldap_master_url -D $zimbra_ldap_userdn -c -w $zimbra_ldap_password -f $DEST/contas/$user.ldiff 2>/dev/null | egrep -v "^adding|^$"
+	printf 'OK --> '
+	echo "$user" ; done
 	echo "+-------------------------------------------------+OK"
 	echo
 
@@ -280,58 +349,102 @@ for user in `cat $DEST/contas/usuarios`; do ldapadd -x -H $ldap_master_url -D $z
 	read CONFIRMA
 	case $CONFIRMA in
 	s|S|Sim|sim)
-for user in `cat $DEST/contas/usuarios`; do zmmailbox -z -m $user postRestURL "/?fmt=tgz&resolve=skip" $DEST/contas/$user.tgz ; echo "$user -- OK" ; done
+for user in `cat $DEST/contas/usuarios` ; do $zmmailbox -z -m $user pru "/?fmt=tgz&resolve=skip" $DEST/contas/$user.tgz ; echo "$user" ; done
 		;;
 n|N|Nao|nao)
 		;;
 *) echo  "Opcao Invalida" ;; esac
 	echo "+-------------------------------------------------+OK"
 	echo
-	
-	echo "Importando Contatos..."
-	echo
-for user in $(ls $DEST/contatos |awk -F ".csv" '{print $1}') ; do zmmailbox -z -m $user pru "/Contacts" $DEST/contatos/"$user".csv ; echo "$user -- OK" ; done
-for user in $(ls $DEST/contatos |awk -F ".emailed.csv" '{print $1}') ; do zmmailbox -z -m $user pru "/Emailed Contacts" $DEST/contatos/"$user".emailed.csv ; done
-	echo "+-------------------------------------------------+OK"
-	echo
 
 	echo "Importando Briefcase..."
 	echo
-for user in $(ls $DEST/briefcase |awk -F ".tgz" '{print $1}') ; do zmmailbox -z -m $user pru "/Briefcase/?fmt=tgz" $DEST/briefcase/"$user".tgz ; echo "$user -- OK" ; done 2>/dev/null
+for user in $(ls $DEST/briefcase |awk -F "-briefcase.tgz" '{print $1}') ; do $zmmailbox -z -m $user pru "/?fmt=tgz&resolve=skip" $DEST/briefcase/$user-briefcase.tgz 2>/dev/null
+	printf 'OK --> '
+	echo "$user" ; done 
 	echo "+-------------------------------------------------+OK"
 	echo
 
+#	echo "Importando Agendas..."
+#	echo
+#for user in $(ls $DEST/agendas |awk -F "-agendas.ics" '{print $1}') ; do $zmmailbox -z -m $user pru "/Calendar" $DEST/agendas/$user-agendas.ics 2>/dev/null
+#	printf 'OK --> '
+#	echo "$user" ; done
+#	echo "+-------------------------------------------------+OK"
+#	echo
+
 	echo "Importando Agendas..."
 	echo
-	cd $DEST/agendas
-	#find . -type f -size -95c -exec rm -f {} \;
-for user in $(ls |awk -F ".ics" '{print $1}') ; do zmmailbox -z -m $user pru /Calendar $DEST/agendas/$user.ics ; echo "$user -- OK" ; done
+for user in $(ls $DEST/agendas |awk -F "-agendas.tgz" '{print $1}') ; do $zmmailbox -z -m $user pru "/?fmt=tgz&resolve=skip" $DEST/agendas/$user-agendas.tgz 2>/dev/null
+	printf 'OK --> '
+	echo "$user" ; done 
+	echo "+-------------------------------------------------+OK"
+	echo
+
+	echo "Importando Chats..."
+	echo
+for user in $(ls $DEST/chats |awk -F "-chats.tgz" '{print $1}') ; do $zmmailbox -z -m $user pru "/?fmt=tgz&resolve=skip" $DEST/chats/$user-chats.tgz 2>/dev/null
+	printf 'OK --> '
+	echo "$user" ; done 
+	echo "+-------------------------------------------------+OK"
+	echo
+	
+#	echo "Importando Contatos..."
+#	echo
+#for user in $(ls $DEST/contatos |awk -F "-contatos.csv|-emailed.csv" '{print $1}') ; do $zmmailbox -z -m $user pru "/Contacts" $DEST/contatos/$user-contatos.csv 2>/dev/null
+#$zmmailbox -z -m $user pru "/Emailed Contacts" $DEST/contatos/$user-emailed.csv
+#	printf 'OK --> '
+#	echo "$user" ; done
+#	echo "+-------------------------------------------------+OK"
+#	echo
+
+	echo "Importando Contatos..."
+	echo
+for user in $(ls $DEST/contatos |awk -F "-contatos.tgz" '{print $1}') ; do $zmmailbox -z -m $user pru "/?fmt=tgz&resolve=skip" $DEST/contatos/$user-contatos.tgz 2>/dev/null
+	printf 'OK --> '
+	echo "$user" ; done 
+	echo "+-------------------------------------------------+OK"
+	echo
+
+	echo "Importando Documentos..."
+	echo
+for user in $(ls $DEST/documentos |awk -F "-documentos.tgz" '{print $1}') ; do $zmmailbox -z -m $user pru "/?fmt=tgz&resolve=skip" $DEST/documentos/$user-documentos.tgz 2>/dev/null
+	printf 'OK --> '
+	echo "$user" ; done 
+	echo "+-------------------------------------------------+OK"
+	echo
+
+	echo "Importando Tarefas..."
+	echo
+for user in $(ls $DEST/tarefas |awk -F "-tarefas.tgz" '{print $1}') ; do $zmmailbox -z -m $user pru "/?fmt=tgz&resolve=skip" $DEST/tarefas/$user-tarefas.tgz 2>/dev/null
+	printf 'OK --> '
+	echo "$user" ; done 
 	echo "+-------------------------------------------------+OK"
 	echo
 
 	echo "Importando Listas de Distribuição..."
 	echo
-for user in `cat $DEST/listas/listas`; do zmprov cdl $user ; echo "$user -- OK" ; done
-for list in `cat $DEST/listas/listas`
-do
-    for user in `grep -v '#' $DEST/listas/$list | grep '@'`
-    do
-        zmprov adlm $list $user
-    done
-done
+for user in `cat $DEST/listas/listas` ; do $zmprov cdl $user 2>/dev/null ; done
+	echo
+	echo "Povoando Listas..."
+	echo
+for list in `cat $DEST/listas/listas` ; do
+for user in `grep -v '#' $DEST/listas/$list | grep '@'` ; do  $zmprov adlm $list $user 2>/dev/null
+	printf 'OK --> '
+	echo "$user" ; done ; done
 	echo "+-------------------------------------------------+OK"
 	echo
-	
+
 	echo "Importando Alias..."
 	echo
 for user in `cat $DEST/contas/usuarios`
 do
-    echo $user
-    if [ -f "./$user.txt" ]; then
-        for alias in `grep '@' ./$user.txt`
+    if [ -f "$DEST/alias/$user" ]; then
+        for alias in `grep '@' $DEST/alias/$user`
         do
-            zmprov aaa $user $alias
-            echo "$user -- OK";
+            $zmprov aaa $user $alias 2>/dev/null
+            printf 'OK --> '
+			echo "$alias"
         done
      fi
 done
@@ -340,17 +453,20 @@ done
 
 	echo "Importando Assinaturas..."
 	echo
-for user in `cat $DEST/contas/usuarios`; do
-zmprov csig $user "`cat $DEST/assinaturas/$user |grep zimbraSignatureName | sed -e 's/zimbraSignatureName: //'`" zimbraPrefMailSignatureHTML "`cat $DEST/assinaturas/$user |grep zimbraPrefMailSignatureHTML | sed -e 's/zimbraPrefMailSignatureHTML: //'`" ; 
-	echo "$user -- OK";
+for user in $(ls $DEST/assinaturas) ; do
+$zmprov csig $user "`cat $DEST/assinaturas/$user |grep zimbraSignatureName | sed -e 's/zimbraSignatureName: //'`" zimbraPrefMailSignatureHTML "`cat $DEST/assinaturas/$user |grep zimbraPrefMailSignatureHTML | sed -e 's/zimbraPrefMailSignatureHTML: //'`"  2>/dev/null | egrep -v "^ERROR"
+	printf 'OK --> '
+	echo "$user";
 done
 	echo "+-------------------------------------------------+OK"
 	echo
 
 	echo "Importando Filtros..."
 	echo
-for user in `cat $DEST/contas/usuarios`; do
-zmprov ma $user zimbraMailSieveScript "`cat $DEST/filtros/$user.filtros`"; 	echo "$user -- OK";
+for user in $(ls $DEST/filtros |awk -F ".filtros" '{print $1}') ; do
+$zmprov ma $user zimbraMailSieveScript "`cat $DEST/filtros/$user.filtros`" 2>/dev/null
+	printf 'OK --> '
+	echo "$user";
 done
 	echo "+-------------------------------------------------+OK"
 	echo
