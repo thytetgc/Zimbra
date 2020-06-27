@@ -35,7 +35,7 @@ Principal() {
      echo "+-------------------------------------------------+"
      echo "|           Utilitario para Zimbra                |"
      echo "+-------------------------------------------------+"
-     echo "| Exportar / Importar Contas do Zimbra    v1.23   |"
+     echo "| Exportar / Importar Contas do Zimbra    v1.24   |"
      echo "+-------------------------------------------------+"
      echo "| Escrito por:                                    |"
      echo "| Thiago Castro - www.hostlp.cloud                |"
@@ -169,14 +169,6 @@ $zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while r
 	echo "+-------------------------------------------------+OK"
 	echo
 
-#	echo "Exportando Agendas..."
-#	echo
-#$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Calendar?fmt=ics" > $DEST/agendas/"$user"-agendas.ics 2>/dev/null
-#	printf 'OK --> '
-#	echo "$user" ; done 
-#	echo "+-------------------------------------------------+OK"
-#	echo
-
 	echo "Exportando Agendas..."
 	echo
 $zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Calendar/?fmt=tgz" > $DEST/agendas/"$user"-agendas.tgz 2>/dev/null
@@ -193,18 +185,10 @@ $zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while r
 	echo "+-------------------------------------------------+OK"
 	echo
 
-#	echo "Exportando Contatos..."
-#	echo
-#$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Contacts" > $DEST/contatos/"$user"-contatos.csv ; $zmmailbox -z -m $user gru "/Emailed Contacts" > $DEST/contatos/"$user"-emailed.csv  2>/dev/null
-#	printf 'OK --> '
-#	echo "$user" ; done
-#	echo "+-------------------------------------------------+OK"
-#	echo
-
 	echo "Exportando Contatos..."
 	echo
 $zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Contacts/?fmt=tgz" > $DEST/contatos/"$user"-contatos.tgz 2>/dev/null
-$zmmailbox -z -m $user gru "/Emailed Contacts/?fmt=tgz" > $DEST/contatos/"$user"-emailed.tgz
+$zmmailbox -z -m $user gru "/Emailed Contacts/?fmt=tgz" > $DEST/contatos/"$user"-emailed.tgz 2>/dev/null
 	printf 'OK --> '
 	echo "$user" ; done
 	echo "+-------------------------------------------------+OK"
@@ -365,14 +349,6 @@ for user in $(ls $DEST/briefcase |awk -F "-briefcase.tgz" '{print $1}') ; do $zm
 	echo "+-------------------------------------------------+OK"
 	echo
 
-#	echo "Importando Agendas..."
-#	echo
-#for user in $(ls $DEST/agendas |awk -F "-agendas.ics" '{print $1}') ; do $zmmailbox -z -m $user pru "/Calendar" $DEST/agendas/$user-agendas.ics 2>/dev/null
-#	printf 'OK --> '
-#	echo "$user" ; done
-#	echo "+-------------------------------------------------+OK"
-#	echo
-
 	echo "Importando Agendas..."
 	echo
 for user in $(ls $DEST/agendas |awk -F "-agendas.tgz" '{print $1}') ; do $zmmailbox -z -m $user pru "/?fmt=tgz&resolve=skip" $DEST/agendas/$user-agendas.tgz 2>/dev/null
@@ -388,15 +364,6 @@ for user in $(ls $DEST/chats |awk -F "-chats.tgz" '{print $1}') ; do $zmmailbox 
 	echo "$user" ; done 
 	echo "+-------------------------------------------------+OK"
 	echo
-	
-#	echo "Importando Contatos..."
-#	echo
-#for user in $(ls $DEST/contatos |awk -F "-contatos.csv|-emailed.csv" '{print $1}') ; do $zmmailbox -z -m $user pru "/Contacts" $DEST/contatos/$user-contatos.csv 2>/dev/null
-#$zmmailbox -z -m $user pru "/Emailed Contacts" $DEST/contatos/$user-emailed.csv
-#	printf 'OK --> '
-#	echo "$user" ; done
-#	echo "+-------------------------------------------------+OK"
-#	echo
 
 	echo "Importando Contatos..."
 	echo
