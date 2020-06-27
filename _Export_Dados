@@ -35,7 +35,7 @@ fi
      echo "+-------------------------------------------------+"
      echo "|           Utilitario para Zimbra                |"
      echo "+-------------------------------------------------+"
-     echo "| 	   Exportar Contas do Zimbra v1.23	     |"
+     echo "| 		Exportar Contas do Zimbra v1.24			 |"
      echo "+-------------------------------------------------+"
      echo "| Escrito por:                                    |"
      echo "| Thiago Castro - www.hostlp.cloud                |"
@@ -115,14 +115,6 @@ $zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmm
 	echo "+-------------------------------------------------+OK"
 	echo
 
-#	echo "Exportando Agendas..."
-#	echo
-#$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmmailbox -z -m $user gru "/Calendar?fmt=ics" > $DEST/agendas/"$user"-agendas.ics 2>/dev/null
-#	printf 'OK --> '
-#	echo "$user" ; done
-#	echo "+-------------------------------------------------+OK"
-#	echo
-
 	echo "Exportando Agendas..."
 	echo
 $zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmmailbox -z -m $user gru "/Calendar/?fmt=tgz" > $DEST/agendas/"$user"-agendas.tgz 2>/dev/null
@@ -138,14 +130,6 @@ $zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmm
 	echo "$user" ; done
 	echo "+-------------------------------------------------+OK"
 	echo
-
-#	echo "Exportando Contatos..."
-#	echo
-#$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do zmmailbox -z -m $user gru "/Contacts" > $DEST/contatos/"$user"-contatos.csv ; zmmailbox -z -m $user gru "/Emailed Contacts" > $DEST/contatos/"$user"-emailed.csv 2>/dev/null
-#	printf 'OK --> '
-#	echo "$user" ; done
-#	echo "+-------------------------------------------------+OK"
-#	echo
 
 	echo "Exportando Contatos..."
 	echo
