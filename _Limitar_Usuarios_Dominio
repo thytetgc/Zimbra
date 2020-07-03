@@ -17,19 +17,19 @@ fi
 Principal() {
 	 clear
      echo "+-------------------------------------------------+"
-     echo "|           Utilitario para Zimbra     v1.2       |"
+     echo "|           Utilitario para Zimbra     v1.3       |"
      echo "+-------------------------------------------------+"
      echo "|         Limitar contas por Dominio              |"
      echo "+-------------------------------------------------+"
      echo "| Escrito por:                                    |"
-     echo "| Thiago Castro - www.hostlp.net                  |"
+     echo "| Thiago Castro - www.hostlp.cloud                |"
      echo "+-------------------------------------------------+"
      echo
      echo
      echo "Opcoes:"
-     echo "1. Listar Dominios Configurados"
-	 echo "2. Limite atual de usuarios de um Dominio"
-	 echo "3. Alterar limite de usuarios de um Dominio"
+     echo "1. Listar dominios configurados"
+	 echo "2. Verificar limite atual de um dominio"
+	 echo "3. Alterar limites de um dominio"
 	 echo
      echo "4. Sair"
 	 echo
@@ -47,7 +47,7 @@ Principal() {
 }
 
 Listar() {
-echo "Dominios atuais no Zimbra..."
+	echo "Dominios configurados no Zimbra..."
 	echo
 $UsrZ 'zmprov gad'
 	echo
@@ -57,9 +57,10 @@ $UsrZ 'zmprov gad'
 }
   
 Limite() {
-echo -n "Verificar limite do dominio: "
-read DOMINIO
+	echo -n "Verificar limite atual do dominio: "
+	read DOMINIO
 $UsrZ 'zmprov gd '$DOMINIO' zimbraDomainMaxAccounts'
+$UsrZ 'zmprov gd '$DOMINIO' zimbraDomainAggregateQuota'
 	echo
     echo "Pressione qualquer tecla para continuar..."
     read msg
@@ -67,13 +68,17 @@ $UsrZ 'zmprov gd '$DOMINIO' zimbraDomainMaxAccounts'
 }
 
 Alterar() {
-echo -n "Limitar usuarios para o dominio: "
-read DOMINIO
-echo -n "Quantas contas? "
-read QTSCONTAS
+	echo -n "Alterar limite atual do dominio: "
+	read DOMINIO
+	echo "(10737418240 = 10GB / 21474836480 = 20GB / 32212254720 = 30GB / 42949672960 = 40GB / 53687091200 = 50GB)"
+	echo -n "Digite em bytes a quota do novo Dominio: "
+	read DOMANINQUOTA
+	echo -n "Quantas contas? "
+	read QTSCONTAS
 $UsrZ 'zmprov md '$DOMINIO' zimbraDomainMaxAccounts '$QTSCONTAS''
+$UsrZ 'zmprov md '$DOMINIO' zimbraDomainAggregateQuota '$DOMANINQUOTA''
 	echo
-echo "Alterado"
+	echo "Alterado"
 	echo
     echo "Pressione qualquer tecla para continuar..."
     read msg
