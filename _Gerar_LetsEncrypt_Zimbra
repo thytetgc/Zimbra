@@ -20,7 +20,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra   1.5          |"
+    echo "|           Utilitario para Zimbra   1.6          |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -48,7 +48,7 @@ fi
 	echo
 	echo "Aperte <ENTER> para continuar e começar..."
 	read 
-	sleep 5
+	sleep 3
 	echo
 	echo "==================EXECUTANDO======================="
 	echo
@@ -112,9 +112,11 @@ $UsrZ 'zmmailboxdctl stop' 1&> /dev/null
 echo "Gerando Certificados..."
 cd ; cd letsencrypt
 domains=`su zimbra -c"/opt/zimbra/bin/zmprov -l gad | sort -r"`
-mail_doms="" ; webmail_doms=""
+mail_doms="" ; webmail_doms="" ; pop_doms="" ; smtp_doms=""
 for domain in $domains ; do mail_doms="$mail_doms -d mail.$domain" ; done
 for domain in $domains ; do webmail_doms="$webmail_doms -d webmail.$domain" ; done
+for domain in $domains ; do pop_doms="$pop_doms -d pop.$domain" ; done
+for domain in $domains ; do smtp_doms="$smtp_doms -d pop.$domain" ; done
 ./letsencrypt-auto certonly --standalone -d `hostname --fqdn` --expand $mail_doms $webmail_doms $pop_doms $smtp_doms
 
 #./letsencrypt-auto certonly --standalone -d `hostname --fqdn` --expand \
