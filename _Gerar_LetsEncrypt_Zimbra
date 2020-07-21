@@ -115,7 +115,7 @@ domains=`su zimbra -c"/opt/zimbra/bin/zmprov -l gad | sort -r"`
 mail_doms="" ; webmail_doms=""
 for domain in $domains ; do mail_doms="$mail_doms -d mail.$domain" ; done
 for domain in $domains ; do webmail_doms="$webmail_doms -d webmail.$domain" ; done
-./letsencrypt-auto certonly --standalone -d `hostname --fqdn` --expand $mail_doms $webmail_doms
+./letsencrypt-auto certonly --standalone -d `hostname --fqdn` --expand $mail_doms $webmail_doms $pop_doms $smtp_doms
 
 #./letsencrypt-auto certonly --standalone -d `hostname --fqdn` --expand \
 #-d mail.domain1.com.br -d webmail.domain1.com.br \
