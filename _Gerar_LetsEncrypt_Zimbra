@@ -20,7 +20,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra   1.6          |"
+    echo "|           Utilitario para Zimbra   1.7          |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -116,12 +116,12 @@ mail_doms="" ; webmail_doms="" ; pop_doms="" ; smtp_doms=""
 for domain in $domains ; do mail_doms="$mail_doms -d mail.$domain" ; done
 for domain in $domains ; do webmail_doms="$webmail_doms -d webmail.$domain" ; done
 for domain in $domains ; do pop_doms="$pop_doms -d pop.$domain" ; done
-for domain in $domains ; do smtp_doms="$smtp_doms -d pop.$domain" ; done
+for domain in $domains ; do smtp_doms="$smtp_doms -d smtp.$domain" ; done
 ./letsencrypt-auto certonly --standalone -d `hostname --fqdn` --expand $mail_doms $webmail_doms $pop_doms $smtp_doms
 
 #./letsencrypt-auto certonly --standalone -d `hostname --fqdn` --expand \
-#-d mail.domain1.com.br -d webmail.domain1.com.br \
-#-d mail.domain2.com.br -d webmail.domain2.com.br
+#-d mail.domain1.com.br -d webmail.domain1.com.br -d pop.domain1.com.br -d smtp.domain1.com.br \
+#-d mail.domain2.com.br -d webmail.domain2.com.br -d pop.domain2.com.br -d smtp.domain2.com.br
 	 echo "+-------------------------------------------------+OK"
 	 
 #Confirmando e-mail para registro de avisos
