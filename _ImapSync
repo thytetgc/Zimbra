@@ -27,7 +27,7 @@ fi
         arquitetura="Arquitetura         : `uname -m`"
         versaozimbra="Versao Zimbra 	 : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra   v1.9         |"
+    echo "|           Utilitario para Zimbra   v1.10         |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -129,8 +129,9 @@ clear
 		echo "1. Zimbra para Zimbra	- Sem precisar de senha das contas somente do admin"
         echo "2. Imap para Imap 	- Utiliza a lista Contas-ImapSync para sincronizar"
 		echo "3. Zimbra para Imap 	- Utiliza as contas do Zimbra e senha padrão de base"
+		echo "4. Imap1 para Imap2 	- Solicita os dados das contas em individuais"
 		echo
-        echo "4. Sair"
+        echo "5. Sair"
         echo
         echo
 		echo -n "Entre com a opcao desejada => "
@@ -140,7 +141,8 @@ clear
         1) Z2Z ;;
         2) I2I ;;
 		3) Z2I ;;
-        4) exit ;;
+		4) I1I2 ;;
+        5) exit ;;
         *) "Opcao desconhecida." ; echo ; Principal ;;
      esac
 }
@@ -261,6 +263,49 @@ imapsync --nolog --buffersize 8192000 --addheader --nosyncacls --subscribe --syn
 done
 
 echo "Finalizado $USER_NAME $TIME_NOW" >> $LOGFILE
+echo "" >> $LOGFILE
+
+TIME_NOW=$(date +"%Y-%m-%d %T")
+echo "" >> $LOGFILE
+echo "IMAPSync Finalizado - $TIME_NOW" >> $LOGFILE
+echo "------------------------------------" >> $LOGFILE
+
+        EMAIL
+}
+
+############################################################
+#Começo do Script do Imap1 to Imap2
+I1I2() {
+
+SUBJECT="IMAPSync Iniciado"
+MESSAGE="'$SCRIPT_NAME' Iniciado"
+#echo "IMAPSync Finalizado" | $MAIL -s "[$SCRIPT_NAME] Iniciado" $MAIL_RECIPIENT
+echo "Subject: $SUBJECT
+$MESSAGE" | "$MAIL" "$MAIL_RECIPIENT"
+
+TIME_NOW=$(date +"%Y-%m-%d %T")
+echo "" >> $LOGFILE
+echo "------------------------------------" >> $LOGFILE
+echo "IMAPSync Iniciado - $TIME_NOW" >> $LOGFILE
+echo "" >> $LOGFILE
+
+echo -n "Conta de Origem: "
+read USER_ORIG1
+PASSDEFAULT="$USER_ORIG1"
+echo -n "Senha			: "
+read PASS_ORIG1
+PASSDEFAULT="$PASS_ORIG1"
+
+echo -n "Conta de Destino: "
+read USER_ORIG2
+PASSDEFAULT="$USER_ORIG2"
+echo -n "Senha Destino: "
+read PASS_ORIG2
+PASSDEFAULT="$PASS_ORIG2"
+
+imapsync --nolog --buffersize 8192000 --addheader --nosyncacls --subscribe --syncinternaldates --host1 $HOST1 --user1 "$USER_ORIG1" --password1 "$PASS_ORIG1" --host2 $HOST2 --user2 "$USER_ORIG2" --password2 "$PASS_ORIG2" --noauthmd5 --nofoldersizes --skipsize
+
+echo "Finalizado $USER_ORIG2 $TIME_NOW" >> $LOGFILE
 echo "" >> $LOGFILE
 
 TIME_NOW=$(date +"%Y-%m-%d %T")
