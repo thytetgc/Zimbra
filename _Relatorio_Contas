@@ -14,56 +14,56 @@ clear
 LOCAL_USER=`id -u -n`
 
 if [ $LOCAL_USER != "root" ] ; then
-	echo "     Rodar como usuario root"
-	echo "     saindo..."
-	echo ""
-	exit
+        echo "     Rodar como usuario root"
+        echo "     saindo..."
+        echo ""
+        exit
 fi
 
-	clear
-	dir="Diretorio Atual		 : `pwd`"
-	hostname="Hostname			 : `hostname --fqdn`"
-	ip="IP						 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
-    versaoso="Versao S.O.		 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
-	release="Release			 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
-	codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
-	kernel="Kernel				 : `uname -r`"
-	arquitetura="Arquitetura	 : `uname -m`"
-	versaozimbra="Versao Zimbra : `/opt/zimbra/bin/zmcontrol -v`"
-	 echo
+        clear
+        dir="Diretorio Atual             : `pwd`"
+        hostname="Hostname                       : `hostname --fqdn`"
+        ip="IP                                           : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
+    versaoso="Versao S.O.                : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+        release="Release                         : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+        codename="Codename                       : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+        kernel="Kernel                           : `uname -r`"
+        arquitetura="Arquitetura         : `uname -m`"
+        versaozimbra="Versao Zimbra : `/opt/zimbra/bin/zmcontrol -v`"
+         echo
      echo "+-------------------------------------------------+"
      echo "|           Utilitario para Zimbra                |"
      echo "+-------------------------------------------------+"
-     echo "|      Relatório de Contas do Zimbra    v1.2      |"
+     echo "|      Relatório de Contas do Zimbra    v1.3      |"
      echo "+-------------------------------------------------+"
      echo "| Escrito por:                                    |"
      echo "| Thiago Castro - www.hostlp.net                  |"
      echo "+-------------------------------------------------+"
      echo
      echo $dir
-	 echo "+-------------------------------------------------+"
-	 echo $hostname
-	 echo "+-------------------------------------------------+"
-	 echo $ip
-	 echo "+-------------------------------------------------+"
-	 echo $versaoso
-	 echo "+-------------------------------------------------+"
-	 echo $release
-	 echo "+-------------------------------------------------+"
-	 echo $codename
-	 echo "+-------------------------------------------------+"
+         echo "+-------------------------------------------------+"
+         echo $hostname
+         echo "+-------------------------------------------------+"
+         echo $ip
+         echo "+-------------------------------------------------+"
+         echo $versaoso
+         echo "+-------------------------------------------------+"
+         echo $release
+         echo "+-------------------------------------------------+"
+         echo $codename
+         echo "+-------------------------------------------------+"
      echo $kernel
-	 echo "+-------------------------------------------------+"
+         echo "+-------------------------------------------------+"
      echo $arquitetura
-	 echo "+-------------------------------------------------+"
-	 echo $versaozimbra
-	 echo "+-------------------------------------------------+"
-	 echo
+         echo "+-------------------------------------------------+"
+         echo $versaozimbra
+         echo "+-------------------------------------------------+"
+         echo
      sleep 5
-	 echo
-	 echo "==================EXECUTANDO======================="
-	 echo
-	
+         echo
+         echo "==================EXECUTANDO======================="
+         echo
+
 #Variavel
 UsrZ="su - zimbra -c"
 
@@ -112,7 +112,10 @@ status=`/opt/zimbra/bin/zmprov ga $user | grep  ^zimbraAccountStatus | cut -f2 -
 lastlogind=`su - zimbra -c '/opt/zimbra/bin/zmaccts | grep '$user' '|tr -s '  ' | cut -f5 -d " "'' | cut -c1-8 | sed 's:\(....\)\(..\)\(.*\):\1/\2/\3:'`
 lastloginh=`su - zimbra -c '/opt/zimbra/bin/zmaccts | grep '$user' '|tr -s '  ' | cut -f5 -d " "'' | cut -c9-14 | sed 's:\(..\)\(..\)\(.*\):\1-\2-\3:' | sed 's/-/:/g'`
 imap=`/opt/zimbra/bin/zmprov ga $user | grep zimbraImapEnabled | cut -f2 -d " " | sed 's/TRUE/Ativado/g' | sed 's/FALSE/Desativado/g'`
+domaintotal=`/opt/zimbra/bin/zmprov gd $domain | grep -w zimbraAggregateQuotaLastUsage | cut -f2 -d " "`
+domainusage=`/opt/zimbra/bin/zmprov gd $domain | grep -w zimbraDomainAggregateQuota | cut -f2 -d " "`
 #Forma 1 de gerar o relatório
+echo "Dominio: $domain - TOTAL: $(human_size $domaintotal) | USADO: $(human_size $domainusage)" > $output
 echo "$user |Usado: $(human_size $usage) - Quota: $(human_size $quota)| |Status - $status| |Imap - $imap| |Ultimo Login: $lastlogind - $lastloginh" >> $output
 #Forma 2 de gerar o relatório
 #echo "$user |Quota: `expr $usage / 1024 / 1024`Mb - `expr $quota / 1024 / 1024`Mb| |Status - $status| |Imap - $imap|" >> $output
