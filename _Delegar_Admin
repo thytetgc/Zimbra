@@ -27,7 +27,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra  v1.1          |"
+    echo "|           Utilitario para Zimbra  v1.2          |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -96,6 +96,13 @@ $UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' -get.account.zimbraAdminCons
 $UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' -get.dl.zimbraAdminConsoleUIComponents'
 $UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' -set.account.zimbraIsDelegatedAdminAccount'
 $UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' -set.dl.zimbraIsAdminGroup'
+echo
+
+echo "Limite maximo para alterar em Cotas de usuario"
+echo "(10240 = 10GB / 20480 = 20GB / 30720 = 30GB / 40960 = 40GB / 51200 = 50GB) (0 = ILIMITADO)"
+echo -n "Digite em MB: "
+read LIMITE
+$UsrZ 'zmprov ma '$USUARIOS' zimbraDomainAdminMaxMailQuota '$LIMITE''
 echo
 
 echo "Pode visualizaar e-mails? - Sim/Nao"
