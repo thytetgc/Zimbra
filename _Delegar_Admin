@@ -27,7 +27,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra  v1.0          |"
+    echo "|           Utilitario para Zimbra  v1.1          |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -89,6 +89,8 @@ $UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' domainAdminConsoleRights'
 $UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' adminConsoleAliasRights'
 $UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' modifyAccount'
 $UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' countAlias'
+$UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' configureQuota'
+$UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' getMailboxInfo'
 $UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' -configureAdminUI'
 $UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' -get.account.zimbraAdminConsoleUIComponents'
 $UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' -get.dl.zimbraAdminConsoleUIComponents'
