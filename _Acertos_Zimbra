@@ -269,6 +269,16 @@ echo '209.126.1.53    OK
 $UsrZ 'postmap /opt/zimbra/conf/postfix_rbl_override'
 $UsrZ 'zmprov mcf +zimbraMtaRestriction 'check_client_access lmdb:/opt/zimbra/conf/postfix_rbl_override''
 	 echo "+-------------------------------------------------+OK"
+	 
+#Adicionar IPs a Blacklist
+#echo "Adicionar IPs a Blacklist"
+#touch /opt/zimbra/conf/postfix_blacklist
+#echo '209.126.1.53    OK
+#209.126.1.83    OK' > /opt/zimbra/conf/postfix_blacklist
+#$UsrZ 'postmap /opt/zimbra/conf/postfix_blacklist'
+#$UsrZ 'zmprov mcf +zimbraMtaRestriction 'check_client_access lmdb:/opt/zimbra/conf/postfix_blacklist''
+	 echo "+-------------------------------------------------+OK"	 
+
 #https://wiki.zimbra.com/wiki/Specific_Whitelist/Blacklist_per_IP
 
 #Criando regras de proteção RBL
