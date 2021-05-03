@@ -19,7 +19,8 @@ if [ $LOCAL_USER != "root" ] ; then
 fi
 	dir="Diretorio Atual		 : `pwd`"
 	hostname="Hostname			 : `hostname --fqdn`"
-	ip="IP						 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
+	ip="IP						 : `wget -qO - icanhazip.com`"
+	#ip="IP						 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
     versaoso="Versao S.O.		 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
 	release="Release			 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
 	codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
@@ -27,7 +28,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra  v1.10         |"
+    echo "|           Utilitario para Zimbra  v1.12         |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -248,7 +249,7 @@ $UsrZ 'echo score RCVD_IN_PBL 0.1 >> ~/data/spamassassin/localrules/sauser.cf'
 $UsrZ 'echo score RDNS_NONE 0.1 >> ~/data/spamassassin/localrules/sauser.cf'
 $UsrZ 'echo score FREEMAIL_FORGED_REPLYTO 4.0 >> ~/data/spamassassin/localrules/sauser.cf'
 $UsrZ 'echo use_bayes 0 >> ~/data/spamassassin/localrules/sauser.cf'
-echo "Adicionar IP Publico do servidor a lista internal_networks do AntiSpam ex: `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`/32"
+echo "Adicionar IP Publico do servidor a lista internal_networks do AntiSpam ex: `wget -qO - icanhazip.com`/32"
 echo -n "IP Publico do Servidor: "
 read IP
 $UsrZ 'echo internal_networks '$IP' >> ~/data/spamassassin/localrules/sauser.cf'
@@ -259,6 +260,16 @@ wget -N https://www.pccc.com/downloads/SpamAssassin/contrib/KAM.cf -O sakam.cf 1
 echo "00 00 * * *"  zimbra  wget -N https://www.pccc.com/downloads/SpamAssassin/contrib/KAM.cf -O /opt/zimbra/data/spamassassin/localrules/sakam.cf > /etc/cron.d/sakam
 	 echo "+-------------------------------------------------+OK"
 #https://wiki.zimbra.com/wiki/Anti-spam_Strategies
+
+#Adicionar IPs a Whitelist
+echo "Adicionar IPs a Whitelist"
+touch /opt/zimbra/conf/postfix_rbl_override
+echo '209.126.1.53    OK
+209.126.1.83    OK' > /opt/zimbra/conf/postfix_rbl_override
+$UsrZ 'postmap /opt/zimbra/conf/postfix_rbl_override'
+$UsrZ 'zmprov mcf +zimbraMtaRestriction 'check_client_access lmdb:/opt/zimbra/conf/postfix_rbl_override''
+	 echo "+-------------------------------------------------+OK"
+#https://wiki.zimbra.com/wiki/Specific_Whitelist/Blacklist_per_IP
 
 #Criando regras de proteção RBL
 echo "Criando regras de proteção RBL"
@@ -313,7 +324,7 @@ $UsrZ 'zmprov -l ms `zmhostname` -zimbraServiceEnabled antivirus'
 #https://www.missioncriticalemail.com/2019/03/21/zimbra-anti-spam-best-practices-2019/
 
 #Adicionar IP Publibco do servidor a lista HttpThrottleSafeIPs
-echo "Adicionar IP Publico do servidor a lista HttpThrottleSafeIPs ex: `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`/32"
+echo "Adicionar IP Publico do servidor a lista HttpThrottleSafeIPs ex: `wget -qO - icanhazip.com`/32"
 echo -n "IP Publico do Servidor: "
 read IP
 $UsrZ 'zmprov mcf zimbraHttpThrottleSafeIPs 127.0.0.1/32 zimbraHttpThrottleSafeIPs '$IP''
