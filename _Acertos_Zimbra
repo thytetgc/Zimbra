@@ -28,7 +28,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra  v1.13         |"
+    echo "|           Utilitario para Zimbra  v1.15         |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -74,6 +74,7 @@ UsrZ="su - zimbra -c"
 
 #Define portas de Proxy para 0
 echo "Definindo portas de Proxy para 0"
+$UsrZ 'zmproxyctl stop' 1&> /dev/null
 $UsrZ 'zmprov -l ms `zmhostname` zimbraImapProxyBindPort 0'
 $UsrZ 'zmprov -l ms `zmhostname` zimbraImapSSLProxyBindPort 0'
 $UsrZ 'zmprov -l ms `zmhostname` zimbraPop3ProxyBindPort 0'
