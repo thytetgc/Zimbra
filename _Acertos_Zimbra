@@ -28,7 +28,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra  v1.15         |"
+    echo "|           Utilitario para Zimbra  v1.18         |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -223,6 +223,11 @@ $UsrZ 'zmprov -l mcf zimbraReverseProxyMailEnabled FALSE'
 echo "Bloqueando Memcached Exploit"
 $UsrZ 'zmprov -l ms `zmhostname` zimbraMemcachedBindAddress 127.0.0.1 '
 $UsrZ 'zmprov -l ms `zmhostname` zimbraMemcachedClientServerList 127.0.0.1'
+	 echo "+-------------------------------------------------+OK"
+
+#Alterando Cache de mensagens
+echo "Alterando Cache de mensagens"
+$UsrZ 'zmprov -l ms `zmhostname` zimbraMessageCacheSize 10000'
 	 echo "+-------------------------------------------------+OK"
 
 #Ativando AntiSpam
@@ -469,6 +474,11 @@ $UsrZ 'zmlocalconfig -e postfix_lmtp_destination_concurrency_limit=20'
 	 echo "+-------------------------------------------------+OK"
 #https://wiki.zimbra.com/wiki/Performance_Tuning_Guidelines_for_Large_Deployments
 
+#Aplicando Tunning Outlook
+echo "Aplicando Tunning Outlook"
+$UsrZ 'zmlocalconfig -e zimbra_imap_folder_pagination_enabled=true'
+	 echo "+-------------------------------------------------+OK"
+
 #Aplicando Spell em pt_BR
 echo "Aplicando Spell em pt_BR"
 $UsrZ 'zmprov -l ms `zmhostname` zimbraSpellAvailableDictionary pt_BR'
@@ -493,6 +503,13 @@ echo "Reescrevendo alterações"
 $UsrZ 'zmmtactl restart'
 $UsrZ 'zmconfigdctl restart'
 	 echo "+-------------------------------------------------+OK"
+
+#Configurando Conexao TCP IPv4
+#echo "Configurando Conexao TCP IPv4"
+#echo '##CONEXAO
+#net.ipv4.tcp_fin_timeout = 15
+#net.ipv4.tcp_tw_reuse = 1' >> /etc/sysctl.conf
+#sysctl -p 1&> /dev/null
 
 #Arrumar permissões de pastas
 echo "Arrumar permissões de pastas - Sim/Nao"
