@@ -51,7 +51,7 @@ rm $dateinametar
          echo
          
 echo "[`date +'%d.%m.%Y %H:%M'`] Sincronizar com armazenamento online [4/4] ..."
-bash /Scripts/upload.sh
+bash /Scripts/_Upload_LFTP
          echo "+-------------------------------------------------+OK"
          echo
          
