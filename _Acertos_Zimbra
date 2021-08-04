@@ -280,11 +280,10 @@ $UsrZ 'zmprov mcf +zimbraMtaRestriction 'check_client_access lmdb:/opt/zimbra/co
 #echo "Adicionar IPs a Blacklist"
 #touch /opt/zimbra/conf/postfix_blacklist
 #echo '209.126.1.53    OK
-#209.126.1.83    OK
 #66.70.156.66    OK' > /opt/zimbra/conf/postfix_rbl_override
 #$UsrZ 'postmap /opt/zimbra/conf/postfix_blacklist'
 #$UsrZ 'zmprov mcf +zimbraMtaRestriction 'check_client_access lmdb:/opt/zimbra/conf/postfix_blacklist''
-	 echo "+-------------------------------------------------+OK"	 
+#	 echo "+-------------------------------------------------+OK"	 
 
 #https://wiki.zimbra.com/wiki/Specific_Whitelist/Blacklist_per_IP
 
@@ -398,7 +397,7 @@ $UsrZ 'zmlocalconfig -e postfix_smtp_tls_security_level=may'
 #	 echo "+-------------------------------------------------+OK"
 
 #Aplicando regra de falso mail from
-echo "Aplicando regra de falso mail from"
+echo "Aplicando regra de falso Mail From"
 $UsrZ 'zmprov mcf zimbraMtaSmtpdRejectUnlistedRecipient yes'
 $UsrZ 'zmprov mcf zimbraMtaSmtpdRejectUnlistedSender yes'
 	 echo "+-------------------------------------------------+OK"
