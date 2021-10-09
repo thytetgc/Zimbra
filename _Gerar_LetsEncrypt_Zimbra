@@ -153,7 +153,7 @@ certbot update_account --email $EMAIL
 
 #Baixando e mesclando certificados
 echo "Baixando e mesclando certificados..."
-wget -N https://letsencrypt.org/certs/isrgrootx1.pem.txt -O /tmp/cert_letsencrypt 1&> /dev/null
+wget -N --no-check-certificate https://letsencrypt.org/certs/isrgrootx1.pem.txt -O /tmp/cert_letsencrypt 1&> /dev/null
 cat /tmp/cert_letsencrypt >> /etc/letsencrypt/live/`hostname --fqdn`/chain.pem
 #echo "-----BEGIN CERTIFICATE-----
 #MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
