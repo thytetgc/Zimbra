@@ -28,7 +28,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra  v1.20         |"
+    echo "|           Utilitario para Zimbra  v1.21         |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -166,7 +166,7 @@ echo tail -f /var/log/mail.log > /sbin/maillog ; chmod +x /sbin/maillog
 	 echo "+-------------------------------------------------+OK"
 
 #Aumentando o limite do tamanho de anexos
-echo "Aumentando o limite do tamanhoa de anexos -> 10mb = 10485760 / 20mb = 20971520 / 30mb = 31457280 / 40mb = 41943040 / 50mb = 52428800"
+echo "Aumentando o limite do tamanho de anexos -> 10mb = 10485760 / 20mb = 20971520 / 30mb = 31457280 / 40mb = 41943040 / 50mb = 52428800"
 echo -n "Limitar anexos em...: "
 read LANX
 $UsrZ 'zmprov mcf zimbraMailContentMaxSize '$LANX''
