@@ -20,7 +20,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra   3.4          |"
+    echo "|           Utilitario para Zimbra   3.5          |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -117,7 +117,7 @@ for domain in $domains ; do mail_doms="$mail_doms -d mail.$domain" ; done
 for domain in $domains ; do webmail_doms="$webmail_doms -d webmail.$domain" ; done
 for domain in $domains ; do pop_doms="$pop_doms -d pop.$domain" ; done
 for domain in $domains ; do smtp_doms="$smtp_doms -d smtp.$domain" ; done
-certbot certonly --standalone --expand --force-renewal --preferred-chain "ISRG Root X1" -d `hostname --fqdn` $mail_doms $webmail_doms $pop_doms $smtp_doms --dry-run
+certbot certonly --standalone --preferred-chain "ISRG Root X1" --key-type rsa --agree-tos --email thiago@hostlp.net -d `hostname --fqdn` $mail_doms $webmail_doms $pop_doms $smtp_doms --dry-run
 	 echo "+-------------------------------------------------+OK"
 
 	echo "Verifique se deu tudo certo até aqui..."
@@ -140,20 +140,20 @@ for domain in $domains ; do mail_doms="$mail_doms -d mail.$domain" ; done
 for domain in $domains ; do webmail_doms="$webmail_doms -d webmail.$domain" ; done
 for domain in $domains ; do pop_doms="$pop_doms -d pop.$domain" ; done
 for domain in $domains ; do smtp_doms="$smtp_doms -d smtp.$domain" ; done
-certbot certonly --standalone --expand --force-renewal --preferred-chain "ISRG Root X1" -d `hostname --fqdn` $mail_doms $webmail_doms $pop_doms $smtp_doms
+certbot certonly --standalone --preferred-chain "ISRG Root X1" --key-type rsa --agree-tos --email thiago@hostlp.net -d `hostname --fqdn` $mail_doms $webmail_doms $pop_doms $smtp_doms
 	 echo "+-------------------------------------------------+OK"
 	 
 #Confirmando e-mail para registro de avisos
-echo "Confirmando e-mail para registro de avisos"
-echo "Digite o e-mail: "
-echo -n
-read EMAIL
-certbot update_account --email $EMAIL
-	 echo "+-------------------------------------------------+OK"
+#echo "Confirmando e-mail para registro de avisos"
+#echo "Digite o e-mail: "
+#echo -n
+#read EMAIL
+#certbot update_account --email $EMAIL
+#	 echo "+-------------------------------------------------+OK"
 
 #Baixando e mesclando certificados
 echo "Baixando e mesclando certificados..."
-wget -N --no-check-certificate https://letsencrypt.org/certs/isrgrootx1.pem.txt -O /tmp/cert_letsencrypt 1&> /dev/null
+wget -N --no-check-certificate https://letsencrypt.org/certs/isrgrootx1.pem.txt -O /tmp/cert_letsencrypt
 cat /tmp/cert_letsencrypt >> /etc/letsencrypt/live/`hostname --fqdn`/chain.pem
 #echo "-----BEGIN CERTIFICATE-----
 #MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
@@ -192,15 +192,15 @@ echo "Criando, copiando e dando permissão..."
 rm -rf /opt/zimbra/ssl/letsencrypt
 mkdir -p /opt/zimbra/ssl/letsencrypt 1&> /dev/null
 cp /etc/letsencrypt/live/`hostname --fqdn`/* /opt/zimbra/ssl/letsencrypt/
-chown zimbra:zimbra /opt/zimbra/ssl/letsencrypt/*
+chown zimbra:zimbra /opt/zimbra/ssl/letsencrypt/* -R
          echo "+-------------------------------------------------+OK"
 
 #Acertando Chave
-zmcertmgr=/opt/zimbra/bin/zmcertmgr
-cp $zmcertmgr $zmcertmgr.bak
-sed -i -e 's/$self->run("$ssl rsa -noout -modulus -in '$keyf'/$self->run("$ssl pkey -pubout -in '$keyf'/g' \
-       -e 's/$self->run("$ssl x509 -noout -modulus -in '$crtf'/$self->run("$ssl x509 -noout -pubkey -in '$crtf'/g' $zmcertmgr
-	 echo "+-------------------------------------------------+OK"
+#zmcertmgr=/opt/zimbra/bin/zmcertmgr
+#cp $zmcertmgr $zmcertmgr.bak
+#sed -i -e 's/$self->run("$ssl rsa -noout -modulus -in '$keyf'/$self->run("$ssl pkey -pubout -in '$keyf'/g' \
+#       -e 's/$self->run("$ssl x509 -noout -modulus -in '$crtf'/$self->run("$ssl x509 -noout -pubkey -in '$crtf'/g' $zmcertmgr
+#	 echo "+-------------------------------------------------+OK"
 
 #Copiando os certificados para o Zimbra
 echo "Copiando os certificados para o Zimbra..."
@@ -235,18 +235,7 @@ $UsrZ 'zmtlsctl redirect' 1&> /dev/null
 	echo "===================PARANDO========================"
 	echo
 	echo "Parando o Zimbra"
-$UsrZ 'zmcontrol stop'
-	echo "+-------------------------------------------------+OK"
-	echo
-	echo
-	echo "Aperte <ENTER> para Iniciar o Zimbra..."
-	read 
-	sleep 5
-	echo
-	echo "==================INICIANDO======================="
-	echo
-	echo "Iniciando o Zimbra"
-$UsrZ 'zmcontrol start'
+$UsrZ 'zmcontrol restart'
 	echo "+-------------------------------------------------+OK"
 	echo
 	echo "Status do Zimbra"
