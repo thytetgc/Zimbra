@@ -20,7 +20,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra   3.8          |"
+    echo "|           Utilitario para Zimbra   3.9          |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -226,7 +226,7 @@ $UsrZ 'zmtlsctl redirect' 1&> /dev/null
 
 #Define as Seguranças
 echo "Definindo a segurança"
-$UsrZ 'mcf zimbraSSLDHParam /etc/ffdhe4096.pem'
+$UsrZ 'zmprov mcf zimbraSSLDHParam /etc/ffdhe4096.pem'
 wget -N --no-check-certificate https://raw.githubusercontent.com/internetstandards/dhe_groups/master/ffdhe4096.pem -O /etc/ffdhe4096.pem
 #https://blog.zimbra.com/2023/02/optimizing-zimbra-security-and-tls-settings-via-a-script/
 
