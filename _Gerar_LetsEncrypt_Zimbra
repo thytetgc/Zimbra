@@ -21,7 +21,305 @@ fi
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
     echo "|           Utilitario para Zimbra   3.5          |"
+    echo #!/bin/bash
+clear
+
+#Checa se o usuario é root
+LOCAL_USER=`id -u -n`
+
+if [ $LOCAL_USER != "root" ] ; then
+	echo "     Rodar como usuario root"
+	echo "     saindo..."
+	echo ""
+	exit
+fi
+	dir="Diretorio Atual		 : `pwd`"
+	hostname="Hostname			 : `hostname --fqdn`"
+	ip="IP						 : `curl -4 -s --max-time 5 http://icanhazip.com/`"
+    versaoso="Versao S.O.		 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	release="Release			 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+	kernel="Kernel				 : `uname -r`"
+	arquitetura="Arquitetura	 : `uname -m`"
+	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
+    echo "|           Utilitario para Zimbra   3.7          |"
+    echo "+-------------------------------------------------+"
+    echo "+-------------------------------------------------+"
+    echo "| Escrito por:                                    |"
+    echo "| Thiago Castro - www.hostlp.cloud                |"
+    echo "+-------------------------------------------------+"
+    echo
+    echo $dir
+	echo "+-------------------------------------------------+"
+	echo $hostname
+	echo "+-------------------------------------------------+"
+	echo $ip
+	echo "+-------------------------------------------------+"
+	echo $versaoso
+	echo "+-------------------------------------------------+"
+	echo $release
+	echo "+-------------------------------------------------+"
+	echo $codename
+	echo "+-------------------------------------------------+"
+    echo $kernel
+	echo "+-------------------------------------------------+"
+    echo $arquitetura
+	echo "+-------------------------------------------------+"
+	echo $versaozimbra
+	echo "+-------------------------------------------------+"
+	echo
+	echo "Aperte <ENTER> para continuar e começar..."
+	read 
+	sleep 3
+	echo
+	echo "==================EXECUTANDO======================="
+	echo
+	
+#Variavel
+UsrZ="su - zimbra -c"
+
+#Abrindo porta 80
+echo "Abrindo Porta 80..."
+iptables -A INPUT -p tcp -m tcp --dport 80 -j ACCEPT
+	 echo "+-------------------------------------------------+OK"
+
+echo "Deseja instalar LetsEncrypt? - Sim/Nao"
+read CONFIRMA
+case $CONFIRMA in
+s|S|Sim|sim) 
+#Baixa/Atualiza o LetsEncrypt
+echo "Baixa/Atualiza o LetsEncrypt..."
+sudo apt install python-pip socat snapd -y
+cd ; \mv letsencrypt/ /tmp/letsencrypt.$(date "+%Y%m%d%H%M") 1&> /dev/null
+snap install core; snap refresh core
+sudo ln -s /var/lib/snapd/snap /snap
+snap install --classic certbot
+rm -rf /usr/bin/certbot
+ln -s /snap/bin/certbot /usr/bin/certbot
+		;;
+n|N|Nao|nao)
+		;;
+*) echo  "Opcao Invalida" ;; esac
+	 echo "+-------------------------------------------------+OK"
+
+#Fazendo Backup de Certificados
+echo "Fazendo Backup de Certificados..."
+cp -rf /etc/letsencrypt/ /etc/letsencrypt.$(date "+%Y%m%d%H%M") 1&> /dev/null
+rm -rf /etc/letsencrypt/archive/*
+rm -rf /etc/letsencrypt/live/*
+rm -rf /etc/letsencrypt/renewal/*
+	 echo "+-------------------------------------------------+OK"
+
+#Apagando certificados
+#echo "Deseja apagar certificados atuais? - Sim/Nao"
+#read CONFIRMA
+#case $CONFIRMA in
+#s|S|Sim|sim)
+#echo "Apagando Certificados..."
+#cd ; cd letsencrypt
+#./letsencrypt-auto delete
+#                ;;
+#n|N|Nao|nao)
+ #               ;;
+#*) echo  "Opcao Invalida" ;; esac
+#         echo "+-------------------------------------------------+OK"
+
+#Parando serviços
+echo "Parando alguns serviços do Zimbra..."
+$UsrZ 'zmproxyctl stop' 1&> /dev/null
+$UsrZ 'zmmailboxdctl stop' 1&> /dev/null
+	 echo "+-------------------------------------------------+OK"
+
+#Testando Certificados
+echo "Testando Certificados..."
+cd ; cd /tmp
+domains=`su zimbra -c"/opt/zimbra/bin/zmprov -l gad | sort -r"`
+mail_doms="" ; webmail_doms="" ; pop_doms="" ; smtp_doms=""
+for domain in $domains ; do mail_doms="$mail_doms -d mail.$domain" ; done
+for domain in $domains ; do webmail_doms="$webmail_doms -d webmail.$domain" ; done
+for domain in $domains ; do pop_doms="$pop_doms -d pop.$domain" ; done
+for domain in $domains ; do smtp_doms="$smtp_doms -d smtp.$domain" ; done
+certbot certonly --standalone --preferred-chain "ISRG Root X1" --key-type rsa --agree-tos --email thiago@hostlp.net -d `hostname --fqdn` $mail_doms $webmail_doms $pop_doms $smtp_doms --dry-run
+	 echo "+-------------------------------------------------+OK"
+
+	echo "Verifique se deu tudo certo até aqui..."
+	echo 
+	echo 
+	echo "Aperte <ENTER> para continuar..."
+	read 
+	sleep 3
+	echo
+	echo "==================EXECUTANDO======================="
+	echo 
+	echo 
+	
+#Gerando Certificados
+echo "Gerando Certificados..."
+cd ; cd /tmp
+domains=`su zimbra -c"/opt/zimbra/bin/zmprov -l gad | sort -r"`
+mail_doms="" ; webmail_doms="" ; pop_doms="" ; smtp_doms=""
+for domain in $domains ; do mail_doms="$mail_doms -d mail.$domain" ; done
+for domain in $domains ; do webmail_doms="$webmail_doms -d webmail.$domain" ; done
+for domain in $domains ; do pop_doms="$pop_doms -d pop.$domain" ; done
+for domain in $domains ; do smtp_doms="$smtp_doms -d smtp.$domain" ; done
+certbot certonly --standalone --preferred-chain "ISRG Root X1" --key-type rsa --agree-tos --email thiago@hostlp.net -d `hostname --fqdn` $mail_doms $webmail_doms $pop_doms $smtp_doms
+	 echo "+-------------------------------------------------+OK"
+	 
+#Confirmando e-mail para registro de avisos
+#echo "Confirmando e-mail para registro de avisos"
+#echo "Digite o e-mail: "
+#echo -n
+#read EMAIL
+#certbot update_account --email $EMAIL
+#	 echo "+-------------------------------------------------+OK"
+
+#Baixando e mesclando certificados
+echo "Baixando e mesclando certificados..."
+wget -N --no-check-certificate https://letsencrypt.org/certs/isrgrootx1.pem.txt -O /tmp/cert_letsencrypt
+cat /tmp/cert_letsencrypt >> /etc/letsencrypt/live/`hostname --fqdn`/chain.pem
+#echo "-----BEGIN CERTIFICATE-----
+#MIIFazCCA1OgAwIBAgIRAIIQz7DSQONZRGPgu2OCiwAwDQYJKoZIhvcNAQELBQAw
+#TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
+#cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMTUwNjA0MTEwNDM4
+#WhcNMzUwNjA0MTEwNDM4WjBPMQswCQYDVQQGEwJVUzEpMCcGA1UEChMgSW50ZXJu
+#ZXQgU2VjdXJpdHkgUmVzZWFyY2ggR3JvdXAxFTATBgNVBAMTDElTUkcgUm9vdCBY
+#MTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBAK3oJHP0FDfzm54rVygc
+#h77ct984kIxuPOZXoHj3dcKi/vVqbvYATyjb3miGbESTtrFj/RQSa78f0uoxmyF+
+#0TM8ukj13Xnfs7j/EvEhmkvBioZxaUpmZmyPfjxwv60pIgbz5MDmgK7iS4+3mX6U
+#A5/TR5d8mUgjU+g4rk8Kb4Mu0UlXjIB0ttov0DiNewNwIRt18jA8+o+u3dpjq+sW
+#T8KOEUt+zwvo/7V3LvSye0rgTBIlDHCNAymg4VMk7BPZ7hm/ELNKjD+Jo2FR3qyH
+#B5T0Y3HsLuJvW5iB4YlcNHlsdu87kGJ55tukmi8mxdAQ4Q7e2RCOFvu396j3x+UC
+#B5iPNgiV5+I3lg02dZ77DnKxHZu8A/lJBdiB3QW0KtZB6awBdpUKD9jf1b0SHzUv
+#KBds0pjBqAlkd25HN7rOrFleaJ1/ctaJxQZBKT5ZPt0m9STJEadao0xAH0ahmbWn
+#OlFuhjuefXKnEgV4We0+UXgVCwOPjdAvBbI+e0ocS3MFEvzG6uBQE3xDk3SzynTn
+#jh8BCNAw1FtxNrQHusEwMFxIt4I7mKZ9YIqioymCzLq9gwQbooMDQaHWBfEbwrbw
+#qHyGO0aoSCqI3Haadr8faqU9GY/rOPNk3sgrDQoo//fb4hVC1CLQJ13hef4Y53CI
+#rU7m2Ys6xt0nUW7/vGT1M0NPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNV
+#HRMBAf8EBTADAQH/MB0GA1UdDgQWBBR5tFnme7bl5AFzgAiIyBpY9umbbjANBgkq
+#hkiG9w0BAQsFAAOCAgEAVR9YqbyyqFDQDLHYGmkgJykIrGF1XIpu+ILlaS/V9lZL
+#ubhzEFnTIZd+50xx+7LSYK05qAvqFyFWhfFQDlnrzuBZ6brJFe+GnY+EgPbk6ZGQ
+#3BebYhtF8GaV0nxvwuo77x/Py9auJ/GpsMiu/X1+mvoiBOv/2X/qkSsisRcOj/KK
+#NFtY2PwByVS5uCbMiogziUwthDyC3+6WVwW6LLv3xLfHTjuCvjHIInNzktHCgKQ5
+#ORAzI4JMPJ+GslWYHb4phowim57iaztXOoJwTdwJx4nLCgdNbOhdjsnvzqvHu7Ur
+#TkXWStAmzOVyyghqpZXjFaH3pO3JLF+l+/+sKAIuvtd7u+Nxe5AW0wdeRlN8NwdC
+#jNPElpzVmbUq4JUagEiuTDkHzsxHpFKVK7q4+63SM1N95R1NbdWhscdCb+ZAJzVc
+#oyi3B43njTOQ5yOf+1CceWxG1bQVs5ZufpsMljq4Ui0/1lvh+wjChP4kqKOJ2qxq
+#4RgqsahDYVvTH9w7jXbyLeiNdd8XM2w9U/t7y0Ff/9yi0GE44Za4rF2LN9d11TPA
+#mRGunUHBcnWEvgJBQl9nJEiU0Zsnvgc/ubhPgXRR4Xq37Z0j4r7g1SgEEzwxA57d
+#emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
+#-----END CERTIFICATE-----" >> /etc/letsencrypt/live/`hostname --fqdn`/chain.pem
+
+#Criando, copiando e dando permissão
+echo "Criando, copiando e dando permissão..."
+rm -rf /opt/zimbra/ssl/letsencrypt
+mkdir -p /opt/zimbra/ssl/letsencrypt 1&> /dev/null
+cp /etc/letsencrypt/live/`hostname --fqdn`/* /opt/zimbra/ssl/letsencrypt/
+chown zimbra:zimbra /opt/zimbra/ssl/letsencrypt/* -R
+         echo "+-------------------------------------------------+OK"
+
+#Acertando Chave
+#zmcertmgr=/opt/zimbra/bin/zmcertmgr
+#cp $zmcertmgr $zmcertmgr.bak
+#sed -i -e 's/$self->run("$ssl rsa -noout -modulus -in '$keyf'/$self->run("$ssl pkey -pubout -in '$keyf'/g' \
+#       -e 's/$self->run("$ssl x509 -noout -modulus -in '$crtf'/$self->run("$ssl x509 -noout -pubkey -in '$crtf'/g' $zmcertmgr
+#	 echo "+-------------------------------------------------+OK"
+
+#Copiando os certificados para o Zimbra
+echo "Copiando os certificados para o Zimbra..."
+$UsrZ 'cd /opt/zimbra/ssl/letsencrypt/'
+$UsrZ 'cd /opt/zimbra/ssl/letsencrypt/ ; /opt/zimbra/bin/zmcertmgr verifycrt comm /opt/zimbra/ssl/letsencrypt/privkey.pem /opt/zimbra/ssl/letsencrypt/cert.pem /opt/zimbra/ssl/letsencrypt/chain.pem'
+$UsrZ 'cp -a /opt/zimbra/ssl/zimbra /opt/zimbra/ssl/zimbra.$(date "+%Y%m%d")'
+$UsrZ 'rm -f /opt/zimbra/ssl/zimbra/commercial/commercial.key'
+$UsrZ 'cp -a /opt/zimbra/ssl/letsencrypt/privkey.pem /opt/zimbra/ssl/zimbra/commercial/commercial.key'
+$UsrZ 'cd /opt/zimbra/ssl/letsencrypt/ ; /opt/zimbra/bin/zmcertmgr deploycrt comm /opt/zimbra/ssl/letsencrypt/cert.pem /opt/zimbra/ssl/letsencrypt/chain.pem'
+	 echo "+-------------------------------------------------+OK"
+
+#Fechando porta 80
+echo "Fechando Porta 80..."
+iptables -D INPUT -p tcp -m tcp --dport 80 -j ACCEPT
+	 echo "+-------------------------------------------------+OK"
+
+#Inicia os serviços
+echo "Iniciando os serviços..."
+$UsrZ 'zmproxyctl start' 1&> /dev/null
+$UsrZ 'zmmailboxdctl start' 1&> /dev/null
+$UsrZ 'zmtlsctl redirect' 1&> /dev/null
+	 echo "+-------------------------------------------------+OK"
+
+#Define as Seguranças
+echo "Definindo a segurança"
+rm -Rf /tmp/provfile
+ZIMBRAIP=$(netstat -tulpn | grep slapd | awk '{print $4}' | awk -F ':' '{print $1}')
+
+cat >> /tmp/provfile << EOF
+mcf zimbraPublicServiceProtocol https
+mcf zimbraPublicServicePort 443
+mcf zimbraPublicServiceHostname $HOSTNAME
+mcf zimbraReverseProxySSLProtocols TLSv1.2
+mcf +zimbraReverseProxySSLProtocols TLSv1.3
+mcf zimbraReverseProxySSLCiphers '!DH:!EDH:!ADH:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384'
+mcf +zimbraResponseHeader "Strict-Transport-Security: max-age=31536000; includeSubDomains"
+mcf +zimbraResponseHeader "X-Content-Type-Options: nosniff"
+mcf +zimbraResponseHeader "X-Robots-Tag: noindex"
+mcf +zimbraResponseHeader "Referrer-Policy: no-referrer"
+mcf zimbraMailKeepOutWebCrawlers TRUE
+mcf zimbraSmtpSendAddMailer FALSE
+mcf zimbraSSLDHParam /etc/ffdhe4096.pem
+mcf zimbraMtaSmtpdTlsCiphers medium
+mcf zimbraMtaSmtpdTlsMandatoryCiphers  medium
+mcf zimbraMtaSmtpdTlsProtocols '>=TLSv1.2'
+mcf zimbraMtaTlsSecurityLevel may
+ms $HOSTNAME zimbraPop3CleartextLoginEnabled FALSE
+ms $HOSTNAME zimbraImapCleartextLoginEnabled FALSE
+mcf zimbraLastLogonTimestampFrequency 1s
+mc default zimbraPrefShortEmailAddress FALSE
+mcf +zimbraMailTrustedIP 127.0.0.1
+mcf +zimbraMailTrustedIP $ZIMBRAIP
+EOF
+
+sed -i 's/-server -Dhttps.protocols=TLSv1.2 -Djdk.tls.client.protocols=TLSv1.2/-server -Dhttps.protocols=TLSv1.2,TLSv1.3 -Djdk.tls.client.protocols=TLSv1.2,TLSv1.3/g' /opt/zimbra/conf/localconfig.xml
+wget -N --no-check-certificate https://raw.githubusercontent.com/internetstandards/dhe_groups/master/ffdhe4096.pem -O /etc/ffdhe4096.pem
+
+$UsrZ '/opt/zimbra/bin/postconf -e fast_flush_domains=""'
+$UsrZ '/opt/zimbra/bin/postconf -e smtpd_etrn_restrictions=reject'
+$UsrZ '/opt/zimbra/bin/postconf -e disable_vrfy_command=yes'
+$UsrZ '/opt/zimbra/bin/postconf -e tls_medium_cipherlist="!DH:!EDH:!ADH:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384"'
+$UsrZ '/opt/zimbra/bin/postconf -e tls_preempt_cipherlist=no'
+
+$UsrZ '/opt/zimbra/bin/zmlocalconfig -e ldap_common_tlsprotocolmin="3.3"'
+$UsrZ '/opt/zimbra/bin/zmlocalconfig -e ldap_common_tlsciphersuite="HIGH"'
+$UsrZ '/opt/zimbra/bin/zmlocalconfig -e ldap_starttls_supported=1'
+$UsrZ '/opt/zimbra/bin/zmlocalconfig -e zimbra_require_interprocess_security=1'
+$UsrZ '/opt/zimbra/bin/zmlocalconfig -e ldap_starttls_required=true'
+
+$UsrZ '/opt/zimbra/bin/zmlocalconfig -e alias_login_enabled=false'
+$UsrZ '/opt/zimbra/bin/zmlocalconfig -e zimbra_same_site_cookie="Strict"'
+
+$UsrZ '/opt/zimbra/bin/zmprov < /tmp/provfile'
+
+#https://wiki.zimbra.com/wiki/Enabling_Admin_Console_Proxy
+#$UsrZ '"/opt/zimbra/libexec/zmproxyconfig -e -w -C -H $HOSTNAME"'
+
+#https://blog.zimbra.com/2023/02/optimizing-zimbra-security-and-tls-settings-via-a-script/
+
+#Reinicia Zimbra
+	echo
+	echo
+	echo "Aperte <ENTER> para reiniciar o Zimbra..."
+	read 
+	sleep 5
+	echo
+	echo "===================PARANDO========================"
+	echo
+	echo "Parando o Zimbra"
+$UsrZ 'zmcontrol restart'
+	echo "+-------------------------------------------------+OK"
+	echo
+	echo "Status do Zimbra"
+$UsrZ 'zmcontrol status'
+	echo "+-------------------------------------------------+OK"
+"+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
     echo "| Thiago Castro - www.hostlp.cloud                |"
