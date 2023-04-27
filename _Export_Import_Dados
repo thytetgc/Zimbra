@@ -35,7 +35,7 @@ Principal() {
      echo "+-------------------------------------------------+"
      echo "|           Utilitario para Zimbra                |"
      echo "+-------------------------------------------------+"
-     echo "| Exportar / Importar Contas do Zimbra    v1.24   |"
+     echo "| Exportar / Importar Contas do Zimbra    v1.30   |"
      echo "+-------------------------------------------------+"
      echo "| Escrito por:                                    |"
      echo "| Thiago Castro - www.hostlp.cloud                |"
@@ -292,6 +292,8 @@ Importar1() {
 	read CONFIRMA
 	case $CONFIRMA in
 	s|S|Sim|sim)
+$zmprov dc Default 2>/dev/null
+$zmprov dc defaultExternal 2>/dev/null
 $ldapadd -c -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -f $DEST/cos/cos.ldiff | egrep -v "^adding|^$"
 		;;
 	n|N|Nao|nao)
