@@ -6,7 +6,7 @@ exec &> >(tee -a "$LOG")
 echo "[`date`] ==== Inicio de rotina..."
 #+----------------GERANDO LOG-----------------------+OK"
 
-clear
+clear 2>/dev/null/
 
 #Checa se o usuario é root
 LOCAL_USER=`id -u -n`
@@ -27,7 +27,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-     echo "|           Utilitario para Zimbra     v1.0      |"
+     echo "|           Utilitario para Zimbra     v1.3      |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -264,7 +264,7 @@ $UsrZ 'for dominios in $(zmprov gad); do /opt/zimbra/libexec/zmdkimkeyutil -a -d
 	 
 echo
 echo
-echo "Aperte <ENTER> para continuar e começar..."
-read
+#echo "Aperte <ENTER> para continuar e começar..."
+#read
 
 echo "[`date`] ==== Fim de rotina..."
