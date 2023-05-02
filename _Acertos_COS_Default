@@ -27,7 +27,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-     echo "|           Utilitario para Zimbra     v1.31     |"
+     echo "|           Utilitario para Zimbra     v1.32     |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -77,7 +77,7 @@ $UsrZ 'zmprov ms `zmhostname` zimbraMailPurgeSleepInterval 1m'
 	 
 echo "Adicioando todos os Dominios para o COS default"
 COS="`su - zimbra -c "zmprov gc default zimbraId|cut -d' ' -f2|egrep -v 'name|$^'"`"
-$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraDomainDefaultCOSId '$COS'; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraDomainDefaultCOSId "'$COS'"; done'
 	 echo "+-------------------------------------------------+OK"
 	 
 echo "Alterando Aviso de Quota para 90%"
@@ -136,7 +136,7 @@ echo "Limitar usuarios para o Dominio"
 echo "Ou ENTER para ilimitado"
 echo -n "Quantas contas? "
 read QTSCONTAS
-$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraDomainMaxAccounts '$QTSCONTAS'; done'
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraDomainMaxAccounts "'$QTSCONTAS'"; done'
 	 echo "+-------------------------------------------------+OK"
 
 echo "Alterando CharSet do COS"
