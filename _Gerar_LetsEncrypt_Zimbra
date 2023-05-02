@@ -226,8 +226,8 @@ $UsrZ 'zmtlsctl redirect' 1&> /dev/null
 
 #Define as Seguranças
 echo "Definindo a segurança"
-$UsrZ 'zmprov mcf zimbraSSLDHParam /etc/ffdhe4096.pem'
 wget -N --no-check-certificate https://raw.githubusercontent.com/internetstandards/dhe_groups/master/ffdhe4096.pem -O /etc/ffdhe4096.pem
+$UsrZ 'zmprov mcf zimbraSSLDHParam /etc/ffdhe4096.pem'
 #https://blog.zimbra.com/2023/02/optimizing-zimbra-security-and-tls-settings-via-a-script/
 
 #Reinicia Zimbra
