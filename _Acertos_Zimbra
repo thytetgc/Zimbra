@@ -210,11 +210,13 @@ s|S|Sim|sim)
 $UsrZ 'zmprov ms `zmhostname` +zimbraServiceEnabled imapproxy'
 $UsrZ 'zmprov ms `zmhostname` +zimbraServiceEnabled proxy'
 $UsrZ 'zmprov mcf zimbraReverseProxyMailEnabled TRUE'
+$UsrZ 'zmprov mcf zimbraReverseProxyHttpEnabled TRUE'
 		;;
 n|N|Nao|nao)
 $UsrZ 'zmprov ms `zmhostname` -zimbraServiceEnabled imapproxy'
 $UsrZ 'zmprov ms `zmhostname` -zimbraServiceEnabled proxy'
 $UsrZ 'zmprov mcf zimbraReverseProxyMailEnabled FALSE'
+$UsrZ 'zmprov mcf zimbraReverseProxyHttpEnabled FALSE'
 		;;
 *) echo  "Opcao Invalida" ;; esac
 	 echo "+-------------------------------------------------+OK"
@@ -291,7 +293,8 @@ $UsrZ 'zmprov mcf +zimbraMtaRestriction 'check_client_access lmdb:/opt/zimbra/co
 echo "Configurando DNS Sec"
 $UsrZ 'zmprov ms `zmhostname` zimbraMtaSmtpDnsSupportLevel "dnssec"'
 $UsrZ 'zmprov ms `zmhostname` zimbraMtaSmtpTlsSecurityLevel "dane"'
-
+$UsrZ 'zmprov mcf zimbraMtaSmtpDnsSupportLevel "dnssec"'
+$UsrZ 'zmprov mcf zimbraMtaSmtpTlsSecurityLevel "dane"'
 
 #Criando regras de proteção RBL
 echo "Ativa RBL? - Sim/Nao"
@@ -318,6 +321,12 @@ n|N|Nao|nao)
 *) echo  "Opcao Invalida" ;; esac
 #https://www.missioncriticalemail.com/2019/03/21/zimbra-anti-spam-best-practices-2019/
 
+#Desativa MTA Restriction
+echo "Desativa MTA Restriction"
+$UsrZ 'zmprov mcf -zimbraMtaRestriction "reject_invalid_helo_hostname"'
+$UsrZ 'zmprov mcf -zimbraMtaRestriction "reject_non_fqdn_sender"'
+	 echo "+-------------------------------------------------+OK"
+
 #Ativando AntiVirus
 echo "Ativando AntiVirus - Sim/Nao"
 read CONFIRMA
@@ -325,6 +334,7 @@ case $CONFIRMA in
 s|S|Sim|sim)
 $UsrZ 'zmprov ms `zmhostname` +zimbraServiceEnabled amavis'
 $UsrZ 'zmprov ms `zmhostname` +zimbraServiceEnabled antivirus'
+$UsrZ 'zmprov mcf zimbraVirusBlockEncryptedArchive FALSE'
 $UsrZ 'zmprov mcf zimbraVirusDefinitionsUpdateFrequency 2h'
 $UsrZ 'zmprov mcf zimbraAmavisLogLevel 2'
 $UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios amaviswhitelistsender ""; done'
@@ -337,6 +347,7 @@ $UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios +amaviswhitelistsen
 n|N|Nao|nao)
 $UsrZ 'zmprov ms `zmhostname` -zimbraServiceEnabled amavis'
 $UsrZ 'zmprov ms `zmhostname` -zimbraServiceEnabled antivirus'
+$UsrZ 'zmprov mcf zimbraVirusBlockEncryptedArchive FALSE'
     echo "+-------------------------------------------------+OK"
        ;;
 *) echo  "Opcao Invalida" ;; esac
@@ -423,7 +434,21 @@ $UsrZ 'zmprov mcf zimbraMtaSmtpdSenderLoginMaps  proxy:ldap:/opt/zimbra/conf/lda
 sed -i 's/^permit_mynetworks/permit_mynetworks, reject_sender_login_mismatch/g' /opt/zimbra/conf/zmconfigd/smtpd_sender_restrictions.cf
 	 echo "+-------------------------------------------------+OK"
 #https://wiki.zimbra.com/wiki/Enforcing_a_match_between_FROM_address_and_sasl_username_8.5
-	 
+
+#Adicionando MyNetworks
+echo "Adicionando MyNetworks"
+$UsrZ 'zmprov ms `zmhostname` zimbraMtaMyNetworks '127.0.0.0/8 [::1]/128''
+$UsrZ 'zmprov mcf zimbraMtaMyNetworks '127.0.0.0/8 [::1]/128''
+	 echo "+-------------------------------------------------+OK"
+
+#Adicionar nome do Compartilhamento do Porta Arquivos
+echo "Adicionar nome do Compartilhamento do Porta Arquivos"
+echo -n "Digite o nome do Compartilhamento do Porta Arquivos: "
+read PORTAARQ
+$UsrZ 'zmprov mcf zimbraBasicAuthRealm "'PORTAARQ'"'
+$UsrZ 'zmprov ms `zmhostname` description "MailServer "'PORTAARQ'""'
+	 	 echo "+-------------------------------------------------+OK"
+
 #Alterando CharSet de todos COS
 echo "Alterando CharSet de todos COS"
 $UsrZ 'for cos in `zmprov gac`; do zmprov mc $cos zimbraPrefMailDefaultCharset UTF-8; done'
@@ -497,7 +522,8 @@ echo "Aplicando quanto tempo em dias armazenar os e-mails mais antigos (0 = ILIM
 echo -n "Digite em dias o tempo de vida dos e-mails do Dominio: "
 read LIFETIME
 $UsrZ 'zmprov mc default zimbraMailMessageLifetime "'$LIFETIME'"'
-$UsrZ 'zmprov ms `zmhostname` zimbraMailPurgeSleepInterval 1m'
+$UsrZ 'zmprov ms `zmhostname` zimbraMailPurgeSleepInterval 1h'
+$UsrZ 'zmprov mcf `zmhostname` zimbraMailPurgeSleepInterval 1h'
 #https://wiki.zimbra.com/wiki/Mailbox_Purge
 	 echo "+-------------------------------------------------+OK"
 
