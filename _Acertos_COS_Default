@@ -220,6 +220,29 @@ $UsrZ 'zmprov mc default zimbraPrefSkin harmony'
 $UsrZ 'zmprov mc default zimbraAvailableSkin harmony'
 	 echo "+-------------------------------------------------+OK"
 
+echo "Habilita limpar a pasta da lixeira"
+$UsrZ 'zmprov mc default zimbraDumpsterPurgeEnabled TRUE'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Habilita enviar e-mail depois"
+$UsrZ 'zmprov mc default zimbraFeatureMailSendLaterEnabled TRUE'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Habilita S/MIME"
+$UsrZ 'zmprov mc default zimbraFeatureSMIMEEnabled TRUE'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Mensagem de aviso de cota"
+$UsrZ 'zmprov mc default zimbraQuotaWarnMessage 'From: Postmaster <postmaster@${RECIPIENT_DOMAIN}>${NEWLINE}To: ${RECIPIENT_NAME} <${RECIPIENT_ADDRESS}>${NEWLINE}Subject: Aviso de cota${NEWLINE}Data: ${DATE}${NEWLINE}Content-Type: text/plain${NEWLINE}${NEWLINE}O tamanho da sua caixa de correio atingiu ${MBOX_SIZE_MB}MB, que acabou ${WARN_PERCENT}% do seu ${QUOTA_MB}MB quota.${NEWLINE}Exclua algumas mensagens para evitar exceder sua cota.${NEWLINE}''
+	 echo "+-------------------------------------------------+OK"
+
+echo "Habilita segurança de senha"
+$UsrZ 'zmprov mc default zimbraPasswordMinUpperCaseChars 1'
+$UsrZ 'zmprov mc default zimbraPasswordMinLowerCaseChars 1'
+$UsrZ 'zmprov mc default zimbraPasswordMinPunctuationChars 1'
+$UsrZ 'zmprov mc default zimbraPasswordMinNumericChars 1'
+	 echo "+-------------------------------------------------+OK"
+
 echo "Ativa e desativa alguns Zimlets"
 $UsrZ 'zmprov mc default zimbraZimletAvailableZimlets !com_zimbra_attachmail'
 $UsrZ 'zmprov mc default zimbraZimletAvailableZimlets +com_zimbra_phone'
