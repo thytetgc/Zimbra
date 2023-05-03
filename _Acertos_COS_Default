@@ -163,8 +163,8 @@ echo "Bloqueia limpeza da lixeira automatica"
 $UsrZ 'zmprov mc default zimbraDumpsterPurgeEnabled FALSE'
 	 echo "+-------------------------------------------------+OK"
 
-echo "Bloqueia acesso a IMAP"
-$UsrZ 'zmprov mc default zimbraImapEnabled FALSE'
+#echo "Bloqueia acesso a IMAP"
+#$UsrZ 'zmprov mc default zimbraImapEnabled FALSE'
 	 echo "+-------------------------------------------------+OK"
 
 echo "Bloqueia acesso a IMAP externo"
