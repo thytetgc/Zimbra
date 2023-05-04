@@ -6,7 +6,7 @@ exec &> >(tee -a "$LOG")
 echo "[`date`] ==== Inicio de rotina..."
 #+----------------GERANDO LOG-----------------------+OK"
 
-clear 2>/dev/null/
+clear
 
 #Checa se o usuario é root
 LOCAL_USER=`id -u -n`
