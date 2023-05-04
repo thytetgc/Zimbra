@@ -240,6 +240,8 @@ read CONFIRMA
 case $CONFIRMA in
 s|S|Sim|sim)
 $UsrZ 'zmprov ms `zmhostname` +zimbraServiceEnabled antispam'
+$UsrZ '/opt/zimbra/libexec/zmspamextract -s -d -o /tmp/spam/'
+$UsrZ '/opt/zimbra/libexec/zmspamextract -n -d -o /tmp/notspam/'
 		;;
 n|N|Nao|nao)
 $UsrZ 'zmprov ms `zmhostname` -zimbraServiceEnabled antispam'
@@ -263,8 +265,6 @@ echo "Adicionar IP Publico do servidor a lista internal_networks do AntiSpam ex:
 echo -n "IP Publico do Servidor: "
 read IP
 $UsrZ 'echo internal_networks '$IP' >> ~/data/spamassassin/localrules/sauser.cf'
-$UsrZ '/opt/zimbra/libexec/zmspamextract -s -d -o /tmp/spam/'
-$UsrZ '/opt/zimbra/libexec/zmspamextract -n -d -o /tmp/notspam/'
 cd /opt/zimbra/data/spamassassin/localrules
 wget -N https://www.pccc.com/downloads/SpamAssassin/contrib/KAM.cf -O sakam.cf
 echo "00 00 * * *"  zimbra  wget -N https://www.pccc.com/downloads/SpamAssassin/contrib/KAM.cf -O /opt/zimbra/data/spamassassin/localrules/sakam.cf > /etc/cron.d/sakam
