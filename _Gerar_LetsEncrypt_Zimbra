@@ -1,4 +1,5 @@
 #!/bin/bash
+sudo timedatectl set-timezone Brazil/East
 clear
 
 #Checa se o usuario é root
@@ -67,7 +68,8 @@ case $CONFIRMA in
 s|S|Sim|sim) 
 #Baixa/Atualiza o LetsEncrypt
 echo "Baixa/Atualiza o LetsEncrypt..."
-sudo apt install python-pip socat snapd python3-pip -y
+@sudo apt install python-pip socat snapd python3-pip -y
+sudo apt install socat snapd python3-pip -y
 cd ; \mv letsencrypt/ /tmp/letsencrypt.$(date "+%Y%m%d%H%M") 1&> /dev/null
 snap install core; snap refresh core
 sudo ln -s /var/lib/snapd/snap /snap
