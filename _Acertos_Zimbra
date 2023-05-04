@@ -1,5 +1,5 @@
 #!/bin/bash
-sudo timedatectl set-timezone Brazil/East
+sudo timedatectl set-timezone America/Sao_Paulo
 
 #+----------------GERANDO LOG-----------------------+OK"
 SCRIPT=`basename $0`
