@@ -1,4 +1,6 @@
 #!/bin/bash
+sudo timedatectl set-timezone Brazil/East
+
 #+----------------GERANDO LOG-----------------------+OK"
 SCRIPT=`basename $0`
 LOG=`echo /opt/zimbra/$SCRIPT.log | sed s/'.sh'/'.log'/g`
@@ -523,7 +525,7 @@ echo -n "Digite em dias o tempo de vida dos e-mails do Dominio: "
 read LIFETIME
 $UsrZ 'zmprov mc default zimbraMailMessageLifetime "'$LIFETIME'"'
 $UsrZ 'zmprov ms `zmhostname` zimbraMailPurgeSleepInterval 1h'
-$UsrZ 'zmprov mcf `zmhostname` zimbraMailPurgeSleepInterval 1h'
+$UsrZ 'zmprov mcf zimbraMailPurgeSleepInterval 1h'
 #https://wiki.zimbra.com/wiki/Mailbox_Purge
 	 echo "+-------------------------------------------------+OK"
 
