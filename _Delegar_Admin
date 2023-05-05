@@ -19,7 +19,8 @@ if [ $LOCAL_USER != "root" ] ; then
 fi
 	dir="Diretorio Atual		 : `pwd`"
 	hostname="Hostname			 : `hostname --fqdn`"
-	ip="IP						 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
+	ip="IP						 : `wget -qO - icanhazip.com`"
+	#ip="IP						 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
     versaoso="Versao S.O.		 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
 	release="Release			 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
 	codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
@@ -27,7 +28,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra  v1.2          |"
+    echo "|           Utilitario para Zimbra  v1.31         |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -78,7 +79,25 @@ echo
 echo "Aperte <ENTER> para continuar e começar..."
 read 
 
+echo "Remove direitos de Administrador? - Sim/Nao"
+read CONFIRMA
+case $CONFIRMA in
+s|S|Sim|sim)
+echo "Retirando regras..."
+$UsrZ 'zmprov ma '$USUARIOS' zimbraIsDelegatedAdminAccount FALSE'
+echo "[`date`] ==== Fim de rotina..."
+exit
+		;;
+n|N|Nao|nao)
+echo
+		;;
+*) echo  "Opcao Invalida" ;; esac
+echo
 
+echo "Aplica direitos de Administrador? - Sim/Nao"
+read CONFIRMA
+case $CONFIRMA in
+s|S|Sim|sim)
 echo "Aplicando regras..."
 $UsrZ 'zmprov ma '$USUARIOS' zimbraIsDelegatedAdminAccount TRUE'
 $UsrZ 'zmprov ma '$USUARIOS' zimbraAdminConsoleUIComponents accountListView zimbraAdminConsoleUIComponents downloadsView zimbraAdminConsoleUIComponents DLListView zimbraAdminConsoleUIComponents aliasListView zimbraAdminConsoleUIComponents resourceListView'
@@ -96,6 +115,12 @@ $UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' -get.account.zimbraAdminCons
 $UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' -get.dl.zimbraAdminConsoleUIComponents'
 $UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' -set.account.zimbraIsDelegatedAdminAccount'
 $UsrZ 'zmprov grr domain '$DOMINIO' usr '$USUARIOS' -set.dl.zimbraIsAdminGroup'
+		;;
+n|N|Nao|nao)
+echo "[`date`] ==== Fim de rotina..."
+exit
+		;;
+*) echo  "Opcao Invalida" ;; esac
 echo
 
 echo "Limite maximo para alterar em Cotas de usuario"
