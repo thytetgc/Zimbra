@@ -30,7 +30,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra  v1.31         |"
+    echo "|           Utilitario para Zimbra  v1.32         |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -454,6 +454,14 @@ $UsrZ 'zmprov ms `zmhostname` description "MailServer "'PORTAARQ'""'
 #Alterando CharSet de todos COS
 echo "Alterando CharSet de todos COS"
 $UsrZ 'for cos in `zmprov gac`; do zmprov mc $cos zimbraPrefMailDefaultCharset UTF-8; done'
+	 echo "+-------------------------------------------------+OK"
+
+#Habilita segurança de senha
+echo "Habilita segurança de senha"
+$UsrZ 'zmprov mc default zimbraPasswordMinUpperCaseChars 1'
+$UsrZ 'zmprov mc default zimbraPasswordMinLowerCaseChars 1'
+$UsrZ 'zmprov mc default zimbraPasswordMinPunctuationChars 1'
+$UsrZ 'zmprov mc default zimbraPasswordMinNumericChars 1'
 	 echo "+-------------------------------------------------+OK"
 
 #Aplicando politica de DOSFilter
