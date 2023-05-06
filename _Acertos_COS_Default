@@ -159,7 +159,7 @@ echo "Ativa Lixeira"
 $UsrZ 'zmprov mc default zimbraDumpsterEnabled TRUE'
 	 echo "+-------------------------------------------------+OK"
 
-echo "Bloqueia limpeza da lixeira automatica"
+echo "Habilita limpar a pasta da lixeira"
 $UsrZ 'zmprov mc default zimbraDumpsterPurgeEnabled TRUE'
 	 echo "+-------------------------------------------------+OK"
 
@@ -218,10 +218,6 @@ $UsrZ 'zmprov mc default zimbraPrefCalendarToasterEnabled TRUE'
 echo "Skin padrão HARMONY"
 $UsrZ 'zmprov mc default zimbraPrefSkin harmony'
 $UsrZ 'zmprov mc default zimbraAvailableSkin harmony'
-	 echo "+-------------------------------------------------+OK"
-
-echo "Habilita limpar a pasta da lixeira"
-$UsrZ 'zmprov mc default zimbraDumpsterPurgeEnabled TRUE'
 	 echo "+-------------------------------------------------+OK"
 
 echo "Habilita enviar e-mail depois"
