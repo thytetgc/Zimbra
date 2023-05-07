@@ -27,7 +27,7 @@ fi
         arquitetura="Arquitetura         : `uname -m`"
         versaozimbra="Versao Zimbra 	 : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra   v1.31         |"
+    echo "|           Utilitario para Zimbra   v1.32        |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -185,7 +185,9 @@ PASSWORDADMIN_DESTINO="$PASSADMIN_DEST"
 
 ZMPROV="/opt/zimbra/bin/zmprov"
 for USER in $($ZMPROV -l gaa); do
-imapsync --nolog --no-modulesversion --buffersize 8192000 --addheader --nosyncacls --subscribe --syncinternaldates --host1 $HOST1 --user1 $USER --authuser1 $ADMIN_ORIGEM --password1 $PASSWORDADMIN_ORIGEM --authmech1 PLAIN --host2 $HOST2 --user2 $USER --authuser2 $ADMIN_DESTINO --password2 $PASSWORDADMIN_DESTINO --authmech2 PLAIN --noauthmd5 --nofoldersizes --skipsize
+imapsync --nolog --no-modulesversion --buffersize 8192000 --addheader --nosyncacls --subscribe --syncinternaldates --noauthmd5 --nofoldersizes --skipsize --errorsmax 100000 \
+--host1 $HOST1 --user1 $USER --authuser1 $ADMIN_ORIGEM --password1 $PASSWORDADMIN_ORIGEM --authmech1 PLAIN \
+--host2 $HOST2 --user2 $USER --authuser2 $ADMIN_DESTINO --password2 $PASSWORDADMIN_DESTINO --authmech2 PLAIN 
 done
 
 echo "Finalizado $USER_NAME $TIME_NOW" >> $LOGFILE
@@ -225,10 +227,14 @@ echo "" >> $LOGFILE
 
 { while IFS=':' read u1 p1; do
 USER_NAME=$u1"@"$DOMAIN
-imapsync --nolog --no-modulesversion --buffersize 8192000 --addheader --nosyncacls --subscribe --syncinternaldates --host1 $HOST1 --user1 "$USER_NAME" --password1 "$p1" --host2 $HOST2 --user2 "$USER_NAME" --password2 "$p1" --noauthmd5 --nofoldersizes --skipsize
+imapsync --nolog --no-modulesversion --buffersize 8192000 --addheader --nosyncacls --subscribe --syncinternaldates --noauthmd5 --nofoldersizes --skipsize --errorsmax 100000 \
+--host1 $HOST1 --user1 "$USER_NAME" --password1 "$p1" \
+--host2 $HOST2 --user2 "$USER_NAME" --password2 "$p1"
 
 #Para importar do GMail
-#imapsync --nolog --no-modulesversion --buffersize 8192000 --addheader --host1 $HOST1 --ssl1 --user1 "$USER_NAME" --password1 "$p1" --host2 $HOST2 --ssl2 --user2 "$USER_NAME" --password2 "$p1" --noauthmd5 --maxbytespersecond 10000 --automap --exclude "\[Gmail\]$"
+#imapsync --nolog --no-modulesversion --buffersize 8192000 --addheader --noauthmd5 --maxbytespersecond 10000 --automap --exclude "\[Gmail\]$" \
+--host1 $HOST1 --ssl1 --user1 "$USER_NAME" --password1 "$p1" \
+--host2 $HOST2 --ssl2 --user2 "$USER_NAME" --password2 "$p1" 
 
 done ; } < /Scripts_Zimbra/Contas-ImapSync
 
@@ -265,7 +271,9 @@ PASSDEFAULT="$PASS_DEFAULT"
 
 ZMPROV="/opt/zimbra/bin/zmprov"
 for USER in $($ZMPROV -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync"); do
-imapsync --nolog --no-modulesversion --buffersize 8192000 --addheader --nosyncacls --subscribe --syncinternaldates --host1 $HOST1 --user1 "$USER" --password1 "$PASS_DEFAULT" --host2 $HOST2 --user2 "$USER" --password2 "$PASS_DEFAULT" --noauthmd5 --nofoldersizes --skipsize
+imapsync --nolog --no-modulesversion --buffersize 8192000 --addheader --nosyncacls --subscribe --syncinternaldates --noauthmd5 --nofoldersizes --skipsize --errorsmax 100000 \
+--host1 $HOST1 --user1 "$USER" --password1 "$PASS_DEFAULT" \
+--host2 $HOST2 --user2 "$USER" --password2 "$PASS_DEFAULT"
 done
 
 echo "Finalizado $USER_NAME $TIME_NOW" >> $LOGFILE
@@ -309,7 +317,9 @@ echo -n "Senha Destino: "
 read PASS_ORIG2
 PASSDEFAULT="$PASS_ORIG2"
 
-imapsync --nolog --no-modulesversion --buffersize 8192000 --addheader --nosyncacls --subscribe --syncinternaldates --host1 $HOST1 --user1 "$USER_ORIG1" --password1 "$PASS_ORIG1" --host2 $HOST2 --user2 "$USER_ORIG2" --password2 "$PASS_ORIG2" --noauthmd5 --nofoldersizes --skipsize
+imapsync --nolog --no-modulesversion --buffersize 8192000 --addheader --nosyncacls --subscribe --syncinternaldates --noauthmd5 --nofoldersizes --skipsize --errorsmax 100000 \
+--host1 $HOST1 --user1 "$USER_ORIG1" --password1 "$PASS_ORIG1" \
+--host2 $HOST2 --user2 "$USER_ORIG2" --password2 "$PASS_ORIG2"
 
 echo "Finalizado $USER_ORIG2 $TIME_NOW" >> $LOGFILE
 echo "" >> $LOGFILE
