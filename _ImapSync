@@ -27,7 +27,7 @@ fi
         arquitetura="Arquitetura         : `uname -m`"
         versaozimbra="Versao Zimbra 	 : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra   v1.32        |"
+    echo "|           Utilitario para Zimbra   v1.33        |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -187,7 +187,8 @@ ZMPROV="/opt/zimbra/bin/zmprov"
 for USER in $($ZMPROV -l gaa); do
 imapsync --nolog --no-modulesversion --buffersize 8192000 --addheader --nosyncacls --subscribe --syncinternaldates --noauthmd5 --nofoldersizes --skipsize --errorsmax 100000 \
 --host1 $HOST1 --user1 $USER --authuser1 $ADMIN_ORIGEM --password1 $PASSWORDADMIN_ORIGEM --authmech1 PLAIN \
---host2 $HOST2 --user2 $USER --authuser2 $ADMIN_DESTINO --password2 $PASSWORDADMIN_DESTINO --authmech2 PLAIN 
+--host2 $HOST2 --user2 $USER --authuser2 $ADMIN_DESTINO --password2 $PASSWORDADMIN_DESTINO --authmech2 PLAIN \
+--regexflag 's/.*?(?:(\\(?:Answered|Flagged|Deleted|Seen|Draft)\s?)|$)/defined($1)?$1:q()/eg'
 done
 
 echo "Finalizado $USER_NAME $TIME_NOW" >> $LOGFILE
