@@ -27,7 +27,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-     echo "|           Utilitario para Zimbra     v1.32     |"
+     echo "|           Utilitario para Zimbra     v1.33     |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -165,7 +165,7 @@ $UsrZ 'zmprov mc default zimbraDumpsterPurgeEnabled TRUE'
 
 #echo "Bloqueia acesso a IMAP"
 #$UsrZ 'zmprov mc default zimbraImapEnabled FALSE'
-	 echo "+-------------------------------------------------+OK"
+#	 echo "+-------------------------------------------------+OK"
 
 echo "Bloqueia acesso a IMAP externo"
 $UsrZ 'zmprov mc default zimbraFeatureImapDataSourceEnabled FALSE'
