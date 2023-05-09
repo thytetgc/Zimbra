@@ -35,7 +35,7 @@ Principal() {
      echo "+-------------------------------------------------+"
      echo "|           Utilitario para Zimbra                |"
      echo "+-------------------------------------------------+"
-     echo "| Exportar / Importar Contas do Zimbra    v1.30   |"
+     echo "| Exportar / Importar Contas do Zimbra    v1.32   |"
      echo "+-------------------------------------------------+"
      echo "| Escrito por:                                    |"
      echo "| Thiago Castro - www.hostlp.cloud                |"
@@ -106,8 +106,8 @@ Exportar1() {
 	HOST=`hostname -d`
 	DEST="/opt/zimbra/backup/"$DOMAIN""
 	mkdir /tmp/$DOMAIN-BKP-$(date "+%Y%m%d") 2>/dev/null
-	\mv $DEST/* /tmp/$DOMAIN-BKP-$(date "+%Y%m%d") 2>/dev/null
-	mkdir $DEST/cos $DEST/dominio $DEST/contas $DEST/contatos $DEST/listas $DEST/alias $DEST/assinaturas $DEST/filtros $DEST/briefcase $DEST/agendas $DEST/chats $DEST/documentos $DEST/tarefas -p 2>/dev/null
+	\mv $DEST /tmp/$DOMAIN-BKP-$(date "+%Y%m%d") 2>/dev/null
+	mkdir $DEST/cos $DEST/dominio $DEST/contas $DEST/contatos $DEST/listas $DEST/alias $DEST/assinaturas $DEST/filtros $DEST/briefcase $DEST/agendas $DEST/chats $DEST/tags $DEST/comments $DEST/documentos $DEST/tarefas $DEST/mysql -p 2>/dev/null
 	chown zimbra:zimbra $DEST -R
 
 #######################################################
@@ -185,6 +185,22 @@ $zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while r
 	echo "+-------------------------------------------------+OK"
 	echo
 
+	echo "Exportando Tags..."
+	echo
+$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Tags/?fmt=tgz" > $DEST/tags/"$user"-tags.tgz 2>/dev/null
+	printf 'OK --> '
+	echo "$user" ; done 
+	echo "+-------------------------------------------------+OK"
+	echo
+
+	echo "Exportando Comments..."
+	echo
+$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Comments/?fmt=tgz" > $DEST/comments/"$user"-comments.tgz 2>/dev/null
+	printf 'OK --> '
+	echo "$user" ; done 
+	echo "+-------------------------------------------------+OK"
+	echo
+		
 	echo "Exportando Contatos..."
 	echo
 $zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Contacts/?fmt=tgz" > $DEST/contatos/"$user"-contatos.tgz 2>/dev/null
@@ -246,6 +262,12 @@ for user in `cat $DEST/contas/usuarios`; do $zmprov ga $user zimbraMailSieveScri
 	echo "+-------------------------------------------------+OK"
 	echo
 
+	echo "Exportando MySQL..."
+	echo
+mysqldump --all-databases -S $mysql_socket -u root --password=$mysql_root_password | gzip > $DEST/mysql/zimbra.sql.gz
+	echo "+-------------------------------------------------+OK"
+	echo
+	
 	echo "Limpando arquivos vazios..."
 	echo
 	cd $DEST
@@ -367,9 +389,26 @@ for user in $(ls $DEST/chats |awk -F "-chats.tgz" '{print $1}') ; do $zmmailbox 
 	echo "+-------------------------------------------------+OK"
 	echo
 
+	echo "Importando Tags..."
+	echo
+for user in $(ls $DEST/tags |awk -F "-tags.tgz" '{print $1}') ; do $zmmailbox -z -m $user pru "/?fmt=tgz&resolve=skip" $DEST/tags/$user-tags.tgz 2>/dev/null
+	printf 'OK --> '
+	echo "$user" ; done 
+	echo "+-------------------------------------------------+OK"
+	echo
+
+	echo "Importando Comments..."
+	echo
+for user in $(ls $DEST/comments |awk -F "-tags.tgz" '{print $1}') ; do $zmmailbox -z -m $user pru "/?fmt=tgz&resolve=skip" $DEST/comments/$user-comments.tgz 2>/dev/null
+	printf 'OK --> '
+	echo "$user" ; done 
+	echo "+-------------------------------------------------+OK"
+	echo
+		
 	echo "Importando Contatos..."
 	echo
-for user in $(ls $DEST/contatos |awk -F "-contatos.tgz" '{print $1}') ; do $zmmailbox -z -m $user pru "/?fmt=tgz&resolve=skip" $DEST/contatos/$user-contatos.tgz 2>/dev/null
+for user in $(ls $DEST/contatos |awk -F "-contatos.tgz|-emailed.tgz" '{print $1}') ; do $zmmailbox -z -m $user pru "/?fmt=tgz&resolve=skip" $DEST/contatos/$user-contatos.tgz 2>/dev/null
+$zmmailbox -z -m $user pru "/?fmt=tgz&resolve=skip" $DEST/contatos/$user-emailed.tgz 2>/dev/null
 	printf 'OK --> '
 	echo "$user" ; done 
 	echo "+-------------------------------------------------+OK"
