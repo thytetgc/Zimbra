@@ -27,7 +27,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-     echo "|           Utilitario para Zimbra     v1.33     |"
+     echo "|           Utilitario para Zimbra     v1.34     |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -76,8 +76,13 @@ $UsrZ 'zmprov ms `zmhostname` zimbraMailPurgeSleepInterval 1m'
 	 echo "+-------------------------------------------------+OK"
 	 
 echo "Adicioando todos os Dominios para o COS default"
-COS="`su - zimbra -c "zmprov gc default zimbraId|cut -d' ' -f2|egrep -v 'name|$^'"`"
-$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraDomainDefaultCOSId "'$COS'"; done'
+COSID="`su - zimbra -c "zmprov gc default zimbraId|cut -d' ' -f2|egrep -v 'name|$^'"`"
+$UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraDomainDefaultCOSId "'$COSID'"; done'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Adicioando Conjunto de serivodres"
+COSCS="`su - zimbra -c "zmprov gc default zimbraMailHostPool|cut -d' ' -f2|egrep -v 'name|$^'"`"
+$UsrZ 'for cos in $(zmprov gac); do zmprov mc $cos zimbraMailHostPool "'$COSCS'"; done'
 	 echo "+-------------------------------------------------+OK"
 	 
 echo "Alterando Aviso de Quota para 90%"
@@ -121,11 +126,6 @@ $UsrZ 'for dominios in $(zmprov gad); do zmgsautil forceSync -a galsync@$dominio
 $UsrZ 'for dominios in $(zmprov gad); do zmprov mds galsync@$dominios default zimbraDataSourcePollingInterval 12h; done'
 	 echo "+-------------------------------------------------+OK"
 	 
-echo
-echo
-#Ajustes Finos
-echo "Ajustes finos"
-echo "+-------------------------------------------------+"
 echo "Alterando Logo"
 $UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraSkinLogoURL https://site.hostlp.com.br; done'
 $UsrZ 'for dominios in $(zmprov gad); do zmprov md $dominios zimbraSkinLogoLoginBanner https://site.hostlp.com.br/imagens/zimbra/Logotipo_Novo_130x58.png; done'
@@ -163,9 +163,9 @@ echo "Habilita limpar a pasta da lixeira"
 $UsrZ 'zmprov mc default zimbraDumpsterPurgeEnabled TRUE'
 	 echo "+-------------------------------------------------+OK"
 
-#echo "Bloqueia acesso a IMAP"
-#$UsrZ 'zmprov mc default zimbraImapEnabled FALSE'
-#	 echo "+-------------------------------------------------+OK"
+echo "Libera acesso a IMAP"
+$UsrZ 'zmprov mc default zimbraImapEnabled TRUE'
+	 echo "+-------------------------------------------------+OK"
 
 echo "Bloqueia acesso a IMAP externo"
 $UsrZ 'zmprov mc default zimbraFeatureImapDataSourceEnabled FALSE'
@@ -173,6 +173,10 @@ $UsrZ 'zmprov mc default zimbraFeatureImapDataSourceEnabled FALSE'
 
 echo "Bloqueia acesso a POP externo"
 $UsrZ 'zmprov mc default zimbraFeaturePop3DataSourceEnabled FALSE'
+	 echo "+-------------------------------------------------+OK"
+
+echo "Libera acesso a POP"
+$UsrZ 'zmprov mc default zimbraPop3Enabled TRUE'
 	 echo "+-------------------------------------------------+OK"
 	 
 echo "Ativa lembrete por SMS"
@@ -186,6 +190,12 @@ $UsrZ 'zmprov mc default zimbraPrefShowSelectionCheckbox TRUE'
 echo "Altera Idioma para pt_BR"
 $UsrZ 'zmprov mc default zimbraPrefLocale pt_BR'
 	 echo "+-------------------------------------------------+OK"
+
+echo "Desativa Mini Calendario"
+$UsrZ 'for cos in $(zmprov gac); do zmprov mc $cos zimbraPrefCalendarAlwaysShowMiniCal FALSE; done'
+
+echo "Altera Fuso Horario para Sao_Paulo"
+$UsrZ 'for cos in $(zmprov gac); do zmprov mc $cos zimbraPrefTimeZoneId America/Sao_Paulo; done'
 
 echo "Agrupar e-mail por mensagem"
 $UsrZ 'zmprov mc default zimbraPrefGroupMailBy message'
@@ -237,21 +247,46 @@ $UsrZ 'zmprov mc default zimbraPasswordMinUpperCaseChars 1'
 $UsrZ 'zmprov mc default zimbraPasswordMinLowerCaseChars 1'
 $UsrZ 'zmprov mc default zimbraPasswordMinPunctuationChars 1'
 $UsrZ 'zmprov mc default zimbraPasswordMinNumericChars 1'
+$UsrZ 'zmprov mc default zimbraPasswordMinUpperCaseChars 1'
+$UsrZ 'zmprov mc $cos zimbraPasswordEnforceHistory 1'
 	 echo "+-------------------------------------------------+OK"
 
 echo "Ativa e desativa alguns Zimlets"
-$UsrZ 'zmprov mc default zimbraZimletAvailableZimlets !com_zimbra_attachmail'
-$UsrZ 'zmprov mc default zimbraZimletAvailableZimlets +com_zimbra_phone'
-$UsrZ 'zmprov mc default zimbraZimletAvailableZimlets +com_zimbra_srchhighlighter'
-$UsrZ 'zmprov mc default zimbraZimletAvailableZimlets !com_zimbra_url'
-$UsrZ 'zmprov mc default zimbraZimletAvailableZimlets +com_zimbra_mailarchive'
-$UsrZ 'zmprov mc default zimbraZimletAvailableZimlets !com_zimbra_email'
-$UsrZ 'zmprov mc default zimbraZimletAvailableZimlets +com_zimbra_webex'
-$UsrZ 'zmprov mc default zimbraZimletAvailableZimlets +com_zextras_drive_open'
-$UsrZ 'zmprov mc default zimbraZimletAvailableZimlets +com_zimbra_ymemoticons'
-$UsrZ 'zmprov mc default zimbraZimletAvailableZimlets !com_zimbra_attachcontacts'
-$UsrZ 'zmprov mc default zimbraZimletAvailableZimlets !com_zimbra_date'
+$UsrZ 'for cos in $(zmprov gac); do zmprov mc $cos zimbraZimletAvailableZimlets ''; done'
+$UsrZ 'for cos in $(zmprov gac); do zmprov mc $cos +zimbraZimletAvailableZimlets 'com_zimbra_attachcontacts'; done'
+$UsrZ 'for cos in $(zmprov gac); do zmprov mc $cos +zimbraZimletAvailableZimlets 'com_zimbra_attachmail'; done'
+$UsrZ 'for cos in $(zmprov gac); do zmprov mc $cos +zimbraZimletAvailableZimlets 'com_zimbra_date'; done'
+$UsrZ 'for cos in $(zmprov gac); do zmprov mc $cos +zimbraZimletAvailableZimlets 'com_zimbra_email'; done'
+$UsrZ 'for cos in $(zmprov gac); do zmprov mc $cos +zimbraZimletAvailableZimlets 'com_zimbra_mailarchive'; done'
+$UsrZ 'for cos in $(zmprov gac); do zmprov mc $cos +zimbraZimletAvailableZimlets 'com_zimbra_srchhighlighter'; done'
+$UsrZ 'for cos in $(zmprov gac); do zmprov mc $cos +zimbraZimletAvailableZimlets 'com_zimbra_url'; done'
 	 echo "+-------------------------------------------------+OK"
+
+echo "Desativa Zimbra-Drive - Sim/Nao"
+read CONFIRMA
+case $CONFIRMA in
+s|S|Sim|sim)
+$UsrZ 'for cos in $(zmprov gac); do zmprov mc $cos -zimbraZimletAvailableZimlets 'com_zextras_drive_open'; done'
+	 echo "+-------------------------------------------------+OK"
+        ;;
+n|N|Nao|nao)
+$UsrZ 'for cos in $(zmprov gac); do zmprov mc $cos +zimbraZimletAvailableZimlets 'com_zextras_drive_open'; done'
+	 echo "+-------------------------------------------------+OK"
+       ;;
+*) echo  "Opcao Invalida" ;; esac
+
+echo "Desativa Zimbra-Chat - Sim/Nao"
+read CONFIRMA
+case $CONFIRMA in
+s|S|Sim|sim)
+$UsrZ 'for cos in $(zmprov gac); do zmprov mc $cos -zimbraZimletAvailableZimlets 'com_zextras_chat_open'; done'
+	 echo "+-------------------------------------------------+OK"
+        ;;
+n|N|Nao|nao)
+$UsrZ 'for cos in $(zmprov gac); do zmprov mc $cos +zimbraZimletAvailableZimlets 'com_zextras_chat_open'; done'
+	 echo "+-------------------------------------------------+OK"
+       ;;
+*) echo  "Opcao Invalida" ;; esac
 
 echo "Ativa bloqueio por login incorreto"
 $UsrZ 'zmprov mc default zimbraPasswordLockoutEnabled TRUE'
