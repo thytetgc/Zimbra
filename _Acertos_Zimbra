@@ -30,7 +30,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra  v1.33         |"
+    echo "|           Utilitario para Zimbra  v1.34         |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -377,11 +377,13 @@ case $CONFIRMA in
 s|S|Sim|sim)
 apt-get remove zimbra-drive --purge -y 1&> /dev/null
 $UsrZ 'zmzimletctl disable com_zextras_drive_open' 1&> /dev/null
+$UsrZ 'for cos in $(zmprov gac); do zmprov mc $cos zimbraZimletAvailableZimlets -com_zextras_drive_open; done'
 	 echo "+-------------------------------------------------+OK"
         ;;
 n|N|Nao|nao)
 apt-get install zimbra-drive -y 1&> /dev/null
 $UsrZ 'zmzimletctl enable com_zextras_drive_open' 1&> /dev/null
+$UsrZ 'for cos in $(zmprov gac); do zmprov mc $cos zimbraZimletAvailableZimlets +com_zextras_drive_open; done'
 	 echo "+-------------------------------------------------+OK"
        ;;
 *) echo  "Opcao Invalida" ;; esac
@@ -392,11 +394,13 @@ case $CONFIRMA in
 s|S|Sim|sim)
 apt-get remove zimbra-chat --purge -y 1&> /dev/null
 $UsrZ 'zmzimletctl disable com_zextras_chat_open' 1&> /dev/null
+$UsrZ 'for cos in $(zmprov gac); do zmprov mc $cos zimbraZimletAvailableZimlets -com_zextras_chat_open; done'
 	 echo "+-------------------------------------------------+OK"
         ;;
 n|N|Nao|nao)
 apt-get install zimbra-chat -y 1&> /dev/null
 $UsrZ 'zmzimletctl enable com_zextras_chat_open' 1&> /dev/null
+$UsrZ 'for cos in $(zmprov gac); do zmprov mc $cos zimbraZimletAvailableZimlets +com_zextras_chat_open; done'
 	 echo "+-------------------------------------------------+OK"
        ;;
 *) echo  "Opcao Invalida" ;; esac
