@@ -1,493 +1,367 @@
 #!/bin/bash
-
 #+----------------GERANDO LOG-----------------------+OK"
 SCRIPT=`basename $0`
-LOG=`echo $SCRIPT.log | sed s/'.sh'/'.log'/g`
+LOG=`echo /Scripts_Zimbra/$SCRIPT.log | sed s/'.sh'/'.log'/g`
 exec &> >(tee -a "$LOG")
 echo "[`date`] ==== Inicio de rotina..."
 #+----------------GERANDO LOG-----------------------+OK"
 
-cd /tmp/
 clear
 
-#Checa se o usuario é zimbra
+#Checa se o usuario é root
 LOCAL_USER=`id -u -n`
 
-if [ $LOCAL_USER != "zimbra" ] ; then
-	echo "     Rodar como usuario Zimbra"
-	echo "     saindo..."
-	echo ""
-	exit
+if [ $LOCAL_USER != "root" ] ; then
+        echo "     Rodar como usuario root"
+        echo "     saindo..."
+        echo ""
+        exit
 fi
+        dir="Diretorio Atual             : `pwd`"
+        hostname="Hostname               : `hostname --fqdn`"
+		ip="IP						 : `wget -qO - icanhazip.com`"
+        #ip="IP                           : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
+		versaoso="Versao S.O.            : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+        release="Release                 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+        codename="Codename               : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
+        kernel="Kernel                   : `uname -r`"
+        arquitetura="Arquitetura         : `uname -m`"
+        versaozimbra="Versao Zimbra 	 : `su - zimbra -c 'zmcontrol -v'`"
+    echo "+-------------------------------------------------+"
+    echo "|           Utilitario para Zimbra   v1.35        |"
+    echo "+-------------------------------------------------+"
+    echo "+-------------------------------------------------+"
+    echo "| Escrito por:                                    |"
+    echo "| Thiago Castro - www.hostlp.cloud                |"
+    echo "+-------------------------------------------------+"
+    echo
+    echo $dir
+    echo "+-------------------------------------------------+"
+    echo $hostname
+    echo "+-------------------------------------------------+"
+    echo $ip
+    echo "+-------------------------------------------------+"
+    echo $versaoso
+    echo "+-------------------------------------------------+"
+    echo $release
+    echo "+-------------------------------------------------+"
+    echo $codename
+    echo "+-------------------------------------------------+"
+	echo $kernel
+    echo "+-------------------------------------------------+"
+	echo $arquitetura
+    echo "+-------------------------------------------------+"
+    echo $versaozimbra
+    echo "+-------------------------------------------------+"
+    echo
+    echo "Aperte <ENTER> para continuar e começar..."
+    read
+    echo
+    echo "==================EXECUTANDO======================="
+    echo
+
+#Instalando ImapSync
+echo "Deseja instalar ImapSync? - Sim/Nao"
+read CONFIRMA
+case $CONFIRMA in
+s|S|Sim|sim)
+sudo apt update
+sudo apt-get install apt-file makepasswd rcs perl-doc libio-tee-perl git libmail-imapclient-perl libdigest-md5-file-perl libterm-readkey-perl libfile-copy-recursive-perl build-essential make automake libunicode-string-perl libauthen-ntlm-perl libcrypt-ssleay-perl libdigest-hmac-perl libfile-copy-recursive-perl libio-compress-perl libio-socket-inet6-perl libio-socket-ssl-perl libio-tee-perl libmodule-scandeps-perl libnet-ssleay-perl libpar-packer-perl libreadonly-perl libterm-readkey-perl libtest-pod-perl libtest-simple-perl libunicode-string-perl liburi-perl cpanminus libssl-dev -y
+sudo apt-get install apt-file libauthen-ntlm-perl libclass-load-perl libcrypt-ssleay-perl liburi-perl libdata-uniqid-perl libdigest-hmac-perl libdist-checkconflicts-perl libfile-copy-recursive-perl libio-compress-perl libio-socket-inet6-perl libio-socket-ssl-perl libio-tee-perl libmail-imapclient-perl libmodule-scandeps-perl libnet-ssleay-perl libpar-packer-perl libreadonly-perl libsys-meminfo-perl libterm-readkey-perl libtest-fatal-perl libtest-mock-guard-perl libtest-pod-perl libtest-requires-perl libtest-simple-perl libunicode-string-perl -y
+sudo cpan -i Encode::IMAPUTF7 JSON::WebToken Test::MockObject Unicode::String Data::Uniqid Sys::MemInfo Regexp::Common JSON::WebToken::Crypt::RSA Dist::CheckConflicts Crypt::OpenSSL::RSA File::Tail CGI Proc::ProcessTable Test::Deep IO::Socket::SSL
+sudo cpan -i Encode::IMAPUTF7 JSON::WebToken Test::MockObject Unicode::String Data::Uniqid Sys::MemInfo Regexp::Common JSON::WebToken::Crypt::RSA Dist::CheckConflicts Crypt::OpenSSL::RSA File::Tail CGI Proc::ProcessTable Test::Deep IO::Socket::SSL
+
+cd /usr/src
+wget https://github.com/imapsync/imapsync/archive/refs/heads/master.zip
+unzip master.zip
+rm -rf master.zip
+mv imapsync-master/ imapsync
+#git clone git://github.com/imapsync/imapsync.git
+cd imapsync
+mkdir dist
+sudo make install
+        echo
+        echo
+        echo "Verifique se tudo correu bem com a instalação"
+        echo
+        echo "Aperte <ENTER> para começar a sincronização..."
+        echo "Aperte <Ctr+C> para Sair..."
+        read
+        echo
+                ;;
+n|N|Nao|nao)
+                ;;
+*) echo  "Opcao Invalida" ;; esac
+
+############################################################
+clear
+#Parametros
+SERVERNAME=$HOSTNAME
+SCRIPT_NAME="$SERVERNAME - Script IMAP TO IMAP"
+MAIL=/opt/zimbra/common/sbin/sendmail;
+echo -n "E-mail para Notificação: "
+read EMAIL
+MAIL_RECIPIENT="$EMAIL"
+LOCK_FILE="/tmp/$SERVERNAME.imapsync.lockfile"
+LOGFILE="ImapSync.log"
+
+#Caminho do LOG
+#mkdir LOG_imapsync/
+#chmod 775 LOG_imapsync/
+
+#host1 Origem
+echo -n "Servidor de Origiem: "
+read HOST_ORG
+HOST1="$HOST_ORG"
+
+#host2 Destino
+echo -n "Servidor de Destino: "
+read HOST_DST
+HOST2="$HOST_DST"
+
+#domain é onde a conta de e-mail tem "tudo após o @"
+echo -n "Dominio: "
+read DOMAIN_MIG
+DOMAIN="$DOMAIN_MIG"
+
+        echo
+        echo "Aperte <ENTER> para começar a migração..."
+		echo
+        read
+
 Principal() {
-	clear
-     dir="Diretorio Atual		 : `pwd`"
-	 hostname="Hostname			 : `hostname --fqdn`"
-	 ip="IP						 : `wget -qO - icanhazip.com`"
-	 #ip="IP					 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
-     versaoso="Versao S.O.		 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
-	 release="Release			 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
-	 codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
-	 kernel="Kernel				 : `uname -r`"
-	 arquitetura="Arquitetura	 : `uname -m`"
-	 versaozimbra="Versao Zimbra : `/opt/zimbra/bin/zmcontrol -v`"
-	 echo
-     echo "+-------------------------------------------------+"
-     echo "|           Utilitario para Zimbra                |"
-     echo "+-------------------------------------------------+"
-     echo "| Exportar / Importar Contas do Zimbra    v1.34   |"
-     echo "+-------------------------------------------------+"
-     echo "| Escrito por:                                    |"
-     echo "| Thiago Castro - www.hostlp.cloud                |"
-     echo "+-------------------------------------------------+"
-     echo
-     echo $dir
-	 echo "+-------------------------------------------------+"
-	 echo $hostname
-	 echo "+-------------------------------------------------+"
-	 echo $ip
-	 echo "+-------------------------------------------------+"
-	 echo $versaoso
-	 echo "+-------------------------------------------------+"
-	 echo $release
-	 echo "+-------------------------------------------------+"
-	 echo $codename
-	 echo "+-------------------------------------------------+"
-     echo $kernel
-	 echo "+-------------------------------------------------+"
-     echo $arquitetura
-	 echo "+-------------------------------------------------+"
-	 echo $versaozimbra
-	 echo "+-------------------------------------------------+"
-	 echo
-	 echo "Este script irá exportar ou importar os dados de: "
-	 echo "--> COS, dominios, contas, contatos, agendas, listas,"
-	 echo "alias, assinaturas, filtros e briefcase <--"
-	 echo "+-------------------------------------------------+"
-     echo
-	 echo "Aperte <ENTER> para continuar e começar..."
-	 read 
-	 echo "Opções:"
-	 echo
-     echo "1. Exportar"
-	 echo "2. Importar"
-	 echo
-	 echo "3. Sair"
-	 echo
-	 echo
-     echo -n "Entre com a opcao desejada => "
-     read opcao
-     echo
-     case $opcao in
-        1) Exportar1 ;;
-        2) Importar1 ;;
-        3) exit ;;
+clear
+        echo "Escolha qual forma de Migração"
+        echo "Opcoes:"
+		echo "1. Zimbra para Zimbra	- Sem precisar de senha das contas somente do admin"
+        echo "2. Imap para Imap 	- Utiliza a lista Contas-ImapSync para sincronizar"
+		echo "3. Zimbra para Imap 	- Utiliza as contas do Zimbra e senha padrão de base"
+		echo "4. Imap1 para Imap2 	- Solicita os dados das contas em individuais"
+		echo
+        echo "5. Sair"
+        echo
+        echo
+		echo -n "Entre com a opcao desejada => "
+		read opcao
+		echo
+		case $opcao in
+        1) Z2Z ;;
+        2) I2I ;;
+		3) Z2I ;;
+		4) I1I2 ;;
+        5) exit ;;
         *) "Opcao desconhecida." ; echo ; Principal ;;
      esac
 }
 
-Exportar1() {
-# EXPORTAÇÃO POR DOMINIO
-	clear
-	source /opt/zimbra/bin/zmshutil
-	zmsetvars
-	zmprov="/opt/zimbra/bin/zmprov"
-	zmmailbox="/opt/zimbra/bin/zmmailbox"
-	ldapsearch="/opt/zimbra/common/bin/ldapsearch"
-	ldapadd="/opt/zimbra/common/bin/ldapadd"
-	echo "Digite o dominio completo para exportar os dados ou deixe vazio"
-	echo "para exportar os dados de todos os dominios cadastrados"
-	echo
-	echo -n "Digite o dominio completo...: "
-	read DOMAIN
-	echo
-	cd /opt/zimbra/backup/
-	NULL="2>/dev/null"
-	HOST=`hostname -d`
-	DEST="/opt/zimbra/backup/"$DOMAIN""
-	mkdir /tmp/$DOMAIN-BKP-$(date "+%Y%m%d") 2>/dev/null
-	\mv $DEST /tmp/$DOMAIN-BKP-$(date "+%Y%m%d") 2>/dev/null
-	mkdir $DEST/cos $DEST/dominio $DEST/contas $DEST/contatos $DEST/listas $DEST/alias $DEST/assinaturas $DEST/filtros $DEST/briefcase $DEST/agendas $DEST/chats $DEST/tags $DEST/comments $DEST/documentos $DEST/tarefas $DEST/mysql -p 2>/dev/null
-	chown zimbra:zimbra $DEST -R
+############################################################
+#Começo do Script do Zimbra to Zimbra
+Z2Z() {
 
-#######################################################
-		
-	echo "Exportar todas COS? - Sim/Nao"
-	read CONFIRMA
-	case $CONFIRMA in
-	s|S|Sim|sim)
-$ldapsearch -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -b '' -LLL "(objectclass=zimbraCOS)" > $DEST/cos/cos.ldiff
-		;;
-	n|N|Nao|nao)
-	echo -n "Digite o nome do COS...: "
-	read COS
-	echo
-$ldapsearch -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -b '' -LLL "(objectclass=zimbraCOS)" > $DEST/cos/"$COS".ldiff
-	sed -i '/cn='$COS'/,$!d' $DEST/cos/"$COS".ldiff
-	sed -i '/^$/,$d' $DEST/cos/"$COS".ldiff
-		;;
-	*) echo  "Opcao Invalida" ;; esac
-	echo "+-------------------------------------------------+OK"
-	echo
-	
-	echo "Exportando Dominio..."
-	echo
-$zmprov gad | grep "$DOMAIN" | tee -a $DEST/dominio/dominio
-	echo "+-------------------------------------------------+OK"
-	echo
-	
-	echo "Exportando Contas..."
-	echo
-	zmhostname > $DEST/server_old
-$zmprov -l gaaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" > $DEST/contas/admins
-$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" > $DEST/contas/usuarios
-for user in `cat $DEST/contas/usuarios`; do $ldapsearch -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -b '' -LLL "(zimbraMailDeliveryAddress=$user)" > $DEST/contas/$user.ldiff
-	printf 'OK --> '
-	echo "$user" ; done
-	echo "+-------------------------------------------------+OK"
-	echo
+SUBJECT="IMAPSync Iniciado"
+MESSAGE="'$SCRIPT_NAME' Iniciado"
+#echo "IMAPSync Finalizado" | $MAIL -s "[$SCRIPT_NAME] Iniciado" $MAIL_RECIPIENT
+echo "Subject: $SUBJECT
+$MESSAGE" | "$MAIL" "$MAIL_RECIPIENT"
 
-	echo "Exportar dados de caixa postal? (tgz) - Sim/Nao"
-	read CONFIRMA
-	case $CONFIRMA in
-	s|S|Sim|sim)
-$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/?fmt=tgz" > $DEST/contas/"$user".tgz
-	printf 'OK --> '
-	echo "$user" ; done
-		;;
-	n|N|Nao|nao)
-		;;
-	*) echo  "Opcao Invalida" ;; esac
-	echo "+-------------------------------------------------+OK"
-	echo
+TIME_NOW=$(date +"%Y-%m-%d %T")
+echo "" >> $LOGFILE
+echo "------------------------------------" >> $LOGFILE
+echo "IMAPSync Iniciado Z2Z - $TIME_NOW" >> $LOGFILE
+echo "" >> $LOGFILE
 
-	echo "Exportando Briefcase..."
-	echo
-$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Briefcase/?fmt=tgz" > $DEST/briefcase/"$user"-briefcase.tgz 2>/dev/null
-	printf 'OK --> '
-	echo "$user" ; done 
-	echo "+-------------------------------------------------+OK"
-	echo
+echo "Rode o comando zimbraAdminImapImportNumThreads 20000"
+echo
+echo -n "Conta Administrador Zimbra de Origem: "
+read ADMIN_ORIG
+ADMIN_ORIGEM="$ADMIN_ORIG"
+echo -n "Senha: "
+read PASSADMIN_ORIG
+PASSWORDADMIN_ORIGEM="$PASSADMIN_ORIG"
+echo
+echo -n "Conta Administrador Zimbra de Destino: "
+read ADMIN_DEST
+ADMIN_DESTINO="$ADMIN_DEST"
+echo -n "Senha: "
+read PASSADMIN_DEST
+PASSWORDADMIN_DESTINO="$PASSADMIN_DEST"
 
-	echo "Exportando Agendas..."
-	echo
-$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Calendar/?fmt=tgz" > $DEST/agendas/"$user"-agendas.tgz 2>/dev/null
-	printf 'OK --> '
-	echo "$user" ; done 
-	echo "+-------------------------------------------------+OK"
-	echo
+ZMPROV="/opt/zimbra/bin/zmprov"
+for USER in $($ZMPROV -l gaa); do
+imapsync --nolog --no-modulesversion --buffersize 8192000 --addheader --nosyncacls --subscribe --syncinternaldates --noauthmd5 --nofoldersizes --skipsize --errorsmax 100000 \
+--host1 $HOST1 --user1 $USER --authuser1 $ADMIN_ORIGEM --password1 $PASSWORDADMIN_ORIGEM --authmech1 PLAIN \
+--host2 $HOST2 --user2 $USER --authuser2 $ADMIN_DESTINO --password2 $PASSWORDADMIN_DESTINO --authmech2 PLAIN \
+--regexflag 's/.*?(?:(\\(?:Answered|Flagged|Deleted|Seen|Draft)\s?)|$)/defined($1)?$1:q()/eg'
+done
 
-	echo "Exportando Chats..."
-	echo
-$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Chats/?fmt=tgz" > $DEST/chats/"$user"-chats.tgz 2>/dev/null
-	printf 'OK --> '
-	echo "$user" ; done 
-	echo "+-------------------------------------------------+OK"
-	echo
+echo "Finalizado $USER_NAME $TIME_NOW" >> $LOGFILE
+echo "" >> $LOGFILE
 
-	echo "Exportando Tags..."
-	echo
-$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Tags/?fmt=tgz" > $DEST/tags/"$user"-tags.tgz 2>/dev/null
-	printf 'OK --> '
-	echo "$user" ; done 
-	echo "+-------------------------------------------------+OK"
-	echo
+TIME_NOW=$(date +"%Y-%m-%d %T")
+echo "" >> $LOGFILE
+echo "IMAPSync Finalizado Z2Z - $TIME_NOW" >> $LOGFILE
+echo "------------------------------------" >> $LOGFILE
 
-	echo "Exportando Comments..."
-	echo
-$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Comments/?fmt=tgz" > $DEST/comments/"$user"-comments.tgz 2>/dev/null
-	printf 'OK --> '
-	echo "$user" ; done 
-	echo "+-------------------------------------------------+OK"
-	echo
-		
-	echo "Exportando Contatos..."
-	echo
-$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Contacts/?fmt=tgz" > $DEST/contatos/"$user"-contatos.tgz 2>/dev/null
-$zmmailbox -z -m $user gru "/Emailed Contacts/?fmt=tgz" > $DEST/contatos/"$user"-emailed.tgz 2>/dev/null
-	printf 'OK --> '
-	echo "$user" ; done
-	echo "+-------------------------------------------------+OK"
-	echo
-
-	echo "Exportando Documentos..."
-	echo
-$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Notebook/?fmt=tgz" > $DEST/documentos/"$user"-documentos.tgz 2>/dev/null
-	printf 'OK --> '
-	echo "$user" ; done 
-	echo "+-------------------------------------------------+OK"
-	echo
-
-	echo "Exportando Tarefas..."
-	echo
-$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Tasks/?fmt=tgz" > $DEST/tarefas/"$user"-tarefas.tgz 2>/dev/null
-	printf 'OK --> '
-	echo "$user" ; done 
-	echo "+-------------------------------------------------+OK"
-	echo
-
-	echo "Exportando Listas de Distribuição..."
-	echo
-$zmprov gadl |grep "$DOMAIN" > $DEST/listas/listas
-$zmprov gadl |grep "$DOMAIN" | while read user_listas; do $zmprov gdlm $user_listas > $DEST/listas/$user_listas
-	printf 'OK --> '
-	echo "$user_listas -- OK" ; done
-	echo "+-------------------------------------------------+OK"
-	echo
-
-	echo "Exportando Alias..."
-	echo
-$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmprov ga $user | grep zimbraMailAlias | awk '{print $2}' > $DEST/alias/"$user"
-	printf 'OK --> '
-	echo "$user" ; done
-	echo "+-------------------------------------------------+OK"
-	echo
-
-	echo "Exportando Assinaturas..."
-	echo
-$zmprov -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmprov gsig $user > $DEST/assinaturas/"$user"
-	printf 'OK --> '
-	echo "$user" ; done
-	sed -i '/zimbraSignatureId/d' $DEST/assinaturas/"$user" ;
-	sed -i '/# name/d' $DEST/assinaturas/"$user" ;
-	echo "+-------------------------------------------------+OK"
-	echo
-
-	echo "Exportando Filtros..."
-	echo
-for user in `cat $DEST/contas/usuarios`; do $zmprov ga $user zimbraMailSieveScript > /tmp/filtros
-    sed -i -e "1d" /tmp/filtros
-    sed 's/zimbraMailSieveScript: //g' /tmp/filtros  > $DEST/filtros/$user.filtros
-    echo "$user" ; done 
-	echo "+-------------------------------------------------+OK"
-	echo
-
-	echo "Exportando MySQL..."
-	echo
-mysqldump --all-databases -S $mysql_socket -u root --password=$mysql_root_password | gzip > $DEST/mysql/zimbra.sql.gz
-	echo "+-------------------------------------------------+OK"
-	echo
-	
-	echo "Limpando arquivos vazios..."
-	echo
-	cd $DEST
-	find . -type f -empty -exec rm -rf {} \;
-	chown zimbra:zimbra $DEST -R
-	echo "Dados Exportados"
-    echo "Pressione qualquer tecla para continuar..."
-    read msg
-    Principal
+        EMAIL
 }
 
-##########################################################################################################
+############################################################
+#Começo do Script do Imap to Imap
+I2I() {
+	echo "NÃO ESQUEÇA DE CRIAR O ARQUIVO "Contas-ImapSync em /Scripts_Zimbra/""
+	echo "              COM CONTEUDO DE "usuario":"senha""
+	read
 
-Importar1() {
-# IMPORTAÇÂO POR DOMINIO
-# já com todos os dados no novo servidor
-	clear
-	source /opt/zimbra/bin/zmshutil
-	zmsetvars
-	zmprov="/opt/zimbra/bin/zmprov"
-	zmmailbox="/opt/zimbra/bin/zmmailbox"
-	ldapsearch="/opt/zimbra/common/bin/ldapsearch"
-	ldapadd="/opt/zimbra/common/bin/ldapadd"
-	echo "Importar todo os dados de um dominio"
-	echo -n "Digite dominio completo...: "
-	read DOMAIN
-	echo
-	cd /opt/zimbra/backup/
-	NULL=`1&> /dev/null 2&> /dev/null`
-	HOST=`hostname -d`
-	DEST="/opt/zimbra/backup/"$DOMAIN""
-	chown zimbra:zimbra $DEST -R
-		
-#######################################################
+echo "Usuario:Senha" >> /Scripts_Zimbra/Contas-ImapSync
 
-	echo "Limpando arquivos vazios..."
-	echo
-	cd $DEST
-	find $DEST -type f -empty -exec rm -rf {} \;
-	echo "+-------------------------------------------------+OK"
-	echo
+#if [ ! -e $LOCK_FILE ]; then
+#touch $LOCK_FILE
 
-	echo "Importar todas COS? - Sim/Nao"
-	read CONFIRMA
-	case $CONFIRMA in
-	s|S|Sim|sim)
-$zmprov dc Default 2>/dev/null
-$zmprov dc defaultExternal 2>/dev/null
-$ldapadd -c -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -f $DEST/cos/cos.ldiff | egrep -v "^adding|^$"
-		;;
-	n|N|Nao|nao)
-	echo -n "Digite o nome da COS...: "
-	read COS
-	echo
-$zmprov dc $COS
-$ldapadd -c -x -H $ldap_master_url -D $zimbra_ldap_userdn -w $zimbra_ldap_password -f $DEST/cos/"$COS".ldiff | egrep -v "^adding|^$"
-	sed -i '/cn='$COS'/,$!d' $DEST/cos/"$COS".ldiff
-	sed -i '/^$/,$d' $DEST/cos/"$COS".ldiff
-	printf 'OK --> '
-	echo "$COS"
-		;;
-	*) echo  "Opcao Invalida" ;; esac
-	echo "+-------------------------------------------------+OK"
-	echo
+SUBJECT="IMAPSync Iniciado"
+MESSAGE="'$SCRIPT_NAME' Iniciado"
+#echo "IMAPSync Finalizado" | $MAIL -s "[$SCRIPT_NAME] Iniciado" $MAIL_RECIPIENT
+echo "Subject: $SUBJECT
+$MESSAGE" | "$MAIL" "$MAIL_RECIPIENT"
 
-	echo "Importando Dominios..."
-	echo
-for domain in `cat $DEST/dominio/dominio`; do $zmprov cd $domain zimbraAuthMech zimbra 2>/dev/null | egrep -v "^adding|^$"
-	printf 'OK --> '
-	echo "$domain" ; done
-	echo "+-------------------------------------------------+OK"
-	echo
+TIME_NOW=$(date +"%Y-%m-%d %T")
+echo "" >> $LOGFILE
+echo "------------------------------------" >> $LOGFILE
+echo "IMAPSync Iniciado I2I - $TIME_NOW" >> $LOGFILE
+echo "" >> $LOGFILE
 
-	echo "Importando Contas..."
-	echo
-	SERVEROL="`cat $DEST/server_old`"
-	SERVERNE="`zmhostname`"
-	find $DEST -type f -name '*.ldiff' -exec sed -i "s/$SERVEROL/$SERVERNE/g" "{}" \;
-for user in `cat $DEST/contas/usuarios`; do $ldapadd -x -H $ldap_master_url -D $zimbra_ldap_userdn -c -w $zimbra_ldap_password -f $DEST/contas/$user.ldiff 2>/dev/null | egrep -v "^adding|^$"
-	printf 'OK --> '
-	echo "$user" ; done
-	echo "+-------------------------------------------------+OK"
-	echo
+{ while IFS=':' read u1 p1; do
+USER_NAME=$u1"@"$DOMAIN
+imapsync --nolog --no-modulesversion --buffersize 8192000 --addheader --nosyncacls --subscribe --syncinternaldates --noauthmd5 --nofoldersizes --skipsize --errorsmax 100000 \
+--host1 $HOST1 --user1 "$USER_NAME" --password1 "$p1" \
+--host2 $HOST2 --user2 "$USER_NAME" --password2 "$p1"
 
-	echo "Importar dados de caixa postal? - Sim/Nao"
-	echo "Local da importação -> "$DEST/contas/...tgz""
-	read CONFIRMA
-	case $CONFIRMA in
-	s|S|Sim|sim)
-for user in `cat $DEST/contas/usuarios` ; do $zmmailbox -z -m $user pru "/?fmt=tgz&resolve=skip" $DEST/contas/$user.tgz ; echo "$user" ; done
-		;;
-n|N|Nao|nao)
-		;;
-*) echo  "Opcao Invalida" ;; esac
-	echo "+-------------------------------------------------+OK"
-	echo
+#Para importar do GMail
+#imapsync --nolog --no-modulesversion --buffersize 8192000 --addheader --noauthmd5 --maxbytespersecond 10000 --automap --exclude "\[Gmail\]$" \
+--host1 $HOST1 --ssl1 --user1 "$USER_NAME" --password1 "$p1" \
+--host2 $HOST2 --ssl2 --user2 "$USER_NAME" --password2 "$p1" 
 
-	echo "Importando Briefcase..."
-	echo
-for user in $(ls $DEST/briefcase |awk -F "-briefcase.tgz" '{print $1}') ; do $zmmailbox -z -m $user pru "/?fmt=tgz&resolve=skip" $DEST/briefcase/$user-briefcase.tgz 2>/dev/null
-	printf 'OK --> '
-	echo "$user" ; done 
-	echo "+-------------------------------------------------+OK"
-	echo
+done ; } < /Scripts_Zimbra/Contas-ImapSync
 
-	echo "Importando Agendas..."
-	echo
-for user in $(ls $DEST/agendas |awk -F "-agendas.tgz" '{print $1}') ; do $zmmailbox -z -m $user pru "/?fmt=tgz&resolve=skip" $DEST/agendas/$user-agendas.tgz 2>/dev/null
-	printf 'OK --> '
-	echo "$user" ; done 
-	echo "+-------------------------------------------------+OK"
-	echo
+TIME_NOW=$(date +"%Y-%m-%d %T")
+echo "Finalizado $USER_NAME $TIME_NOW" >> $LOGFILE
+echo "" >> $LOGFILE
 
-	echo "Importando Chats..."
-	echo
-for user in $(ls $DEST/chats |awk -F "-chats.tgz" '{print $1}') ; do $zmmailbox -z -m $user pru "/?fmt=tgz&resolve=skip" $DEST/chats/$user-chats.tgz 2>/dev/null
-	printf 'OK --> '
-	echo "$user" ; done 
-	echo "+-------------------------------------------------+OK"
-	echo
+echo "" >> $LOGFILE
+echo "IMAPSync Finalizado I2I - $TIME_NOW" >> $LOGFILE
+echo "------------------------------------" >> $LOGFILE
 
-	echo "Importando Tags..."
-	echo
-for user in $(ls $DEST/tags |awk -F "-tags.tgz" '{print $1}') ; do $zmmailbox -z -m $user pru "/?fmt=tgz&resolve=skip" $DEST/tags/$user-tags.tgz 2>/dev/null
-	printf 'OK --> '
-	echo "$user" ; done 
-	echo "+-------------------------------------------------+OK"
-	echo
+        EMAIL
+}
 
-	echo "Importando Comments..."
-	echo
-for user in $(ls $DEST/comments |awk -F "-tags.tgz" '{print $1}') ; do $zmmailbox -z -m $user pru "/?fmt=tgz&resolve=skip" $DEST/comments/$user-comments.tgz 2>/dev/null
-	printf 'OK --> '
-	echo "$user" ; done 
-	echo "+-------------------------------------------------+OK"
-	echo
-		
-	echo "Importando Contatos..."
-	echo
-for user in $(ls $DEST/contatos |awk -F "-contatos.tgz|-emailed.tgz" '{print $1}') ; do $zmmailbox -z -m $user pru "/?fmt=tgz&resolve=skip" $DEST/contatos/$user-contatos.tgz 2>/dev/null
-$zmmailbox -z -m $user pru "/?fmt=tgz&resolve=skip" $DEST/contatos/$user-emailed.tgz 2>/dev/null
-	printf 'OK --> '
-	echo "$user" ; done 
-	echo "+-------------------------------------------------+OK"
-	echo
+############################################################
+#Começo do Script do Zimbra to Imap
+Z2I() {
 
-	echo "Importando Documentos..."
-	echo
-for user in $(ls $DEST/documentos |awk -F "-documentos.tgz" '{print $1}') ; do $zmmailbox -z -m $user pru "/?fmt=tgz&resolve=skip" $DEST/documentos/$user-documentos.tgz 2>/dev/null
-	printf 'OK --> '
-	echo "$user" ; done 
-	echo "+-------------------------------------------------+OK"
-	echo
+SUBJECT="IMAPSync Iniciado"
+MESSAGE="'$SCRIPT_NAME' Iniciado"
+#echo "IMAPSync Finalizado" | $MAIL -s "[$SCRIPT_NAME] Iniciado" $MAIL_RECIPIENT
+echo "Subject: $SUBJECT
+$MESSAGE" | "$MAIL" "$MAIL_RECIPIENT"
 
-	echo "Importando Tarefas..."
-	echo
-for user in $(ls $DEST/tarefas |awk -F "-tarefas.tgz" '{print $1}') ; do $zmmailbox -z -m $user pru "/?fmt=tgz&resolve=skip" $DEST/tarefas/$user-tarefas.tgz 2>/dev/null
-	printf 'OK --> '
-	echo "$user" ; done 
-	echo "+-------------------------------------------------+OK"
-	echo
+TIME_NOW=$(date +"%Y-%m-%d %T")
+echo "" >> $LOGFILE
+echo "------------------------------------" >> $LOGFILE
+echo "IMAPSync Iniciado - $TIME_NOW" >> $LOGFILE
+echo "" >> $LOGFILE
 
-	echo "Importando Listas de Distribuição..."
-	echo
-for user in `cat $DEST/listas/listas` ; do $zmprov cdl $user 2>/dev/null ; done
-	echo
-	echo "Povoando Listas..."
-	echo
-for list in `cat $DEST/listas/listas` ; do
-for user in `grep -v '#' $DEST/listas/$list | grep '@'` ; do  $zmprov adlm $list $user 2>/dev/null
-	printf 'OK --> '
-	echo "$user" ; done ; done
-	echo "+-------------------------------------------------+OK"
-	echo
+echo -n "Senha padrão: "
+read PASS_DEFAULT
+PASSDEFAULT="$PASS_DEFAULT"
 
-	echo "Importando Alias..."
-	echo
-for user in `cat $DEST/contas/usuarios`
-do
-    if [ -f "$DEST/alias/$user" ]; then
-        for alias in `grep '@' $DEST/alias/$user`
-        do
-            $zmprov aaa $user $alias 2>/dev/null
-            printf 'OK --> '
-			echo "$alias"
-        done
-     fi
+ZMPROV="/opt/zimbra/bin/zmprov"
+for USER in $($ZMPROV -l gaa |grep "$DOMAIN" | egrep -v "^virus|^ham|^spam|^galsync"); do
+imapsync --nolog --no-modulesversion --buffersize 8192000 --addheader --nosyncacls --subscribe --syncinternaldates --noauthmd5 --nofoldersizes --skipsize --errorsmax 100000 \
+--host1 $HOST1 --user1 "$USER" --password1 "$PASS_DEFAULT" \
+--host2 $HOST2 --user2 "$USER" --password2 "$PASS_DEFAULT"
 done
-	echo "+-------------------------------------------------+OK"
-	echo
 
-	echo "Importando Assinaturas..."
-	echo
-for user in $(ls $DEST/assinaturas) ; do
-$zmprov csig $user "`cat $DEST/assinaturas/$user |grep zimbraSignatureName | sed -e 's/zimbraSignatureName: //'`" zimbraPrefMailSignatureHTML "`cat $DEST/assinaturas/$user |grep zimbraPrefMailSignatureHTML | sed -e 's/zimbraPrefMailSignatureHTML: //'`"  2>/dev/null | egrep -v "^ERROR"
-	printf 'OK --> '
-	echo "$user";
-done
-	echo "+-------------------------------------------------+OK"
-	echo
+echo "Finalizado $USER_NAME $TIME_NOW" >> $LOGFILE
+echo "" >> $LOGFILE
 
-	echo "Importando Filtros..."
-	echo
-for user in $(ls $DEST/filtros |awk -F ".filtros" '{print $1}') ; do
-$zmprov ma $user zimbraMailSieveScript "`cat $DEST/filtros/$user.filtros`" 2>/dev/null
-	printf 'OK --> '
-	echo "$user";
-done
-	echo "+-------------------------------------------------+OK"
-	echo
+TIME_NOW=$(date +"%Y-%m-%d %T")
+echo "" >> $LOGFILE
+echo "IMAPSync Finalizado - $TIME_NOW" >> $LOGFILE
+echo "------------------------------------" >> $LOGFILE
+
+        EMAIL
+}
+
+############################################################
+#Começo do Script do Imap1 to Imap2
+I1I2() {
+
+SUBJECT="IMAPSync Iniciado"
+MESSAGE="'$SCRIPT_NAME' Iniciado"
+#echo "IMAPSync Finalizado" | $MAIL -s "[$SCRIPT_NAME] Iniciado" $MAIL_RECIPIENT
+echo "Subject: $SUBJECT
+$MESSAGE" | "$MAIL" "$MAIL_RECIPIENT"
+
+TIME_NOW=$(date +"%Y-%m-%d %T")
+echo "" >> $LOGFILE
+echo "------------------------------------" >> $LOGFILE
+echo "IMAPSync Iniciado - $TIME_NOW" >> $LOGFILE
+echo "" >> $LOGFILE
+
+echo -n "Conta de Origem: "
+read USER_ORIG1
+PASSDEFAULT="$USER_ORIG1"
+echo -n "Senha			: "
+read PASS_ORIG1
+PASSDEFAULT="$PASS_ORIG1"
+
+echo -n "Conta de Destino: "
+read USER_ORIG2
+PASSDEFAULT="$USER_ORIG2"
+echo -n "Senha Destino: "
+read PASS_ORIG2
+PASSDEFAULT="$PASS_ORIG2"
+
+imapsync --nolog --no-modulesversion --buffersize 8192000 --addheader --nosyncacls --subscribe --syncinternaldates --noauthmd5 --nofoldersizes --skipsize --errorsmax 100000 \
+--host1 $HOST1 --user1 "$USER_ORIG1" --password1 "$PASS_ORIG1" \
+--host2 $HOST2 --user2 "$USER_ORIG2" --password2 "$PASS_ORIG2"
+
+echo "Finalizado $USER_ORIG2 $TIME_NOW" >> $LOGFILE
+echo "" >> $LOGFILE
+
+TIME_NOW=$(date +"%Y-%m-%d %T")
+echo "" >> $LOGFILE
+echo "IMAPSync Finalizado - $TIME_NOW" >> $LOGFILE
+echo "------------------------------------" >> $LOGFILE
+
+        EMAIL
+}
+
+############################################################
+#Começo do Script para notificar por e-mail
+EMAIL() {
+
+SUBJECT="IMAPSync Finalizado"
+MESSAGE="'$SCRIPT_NAME' Finalizado"
+#echo "IMAPSync Finalizado" | $MAIL -s "[$SCRIPT_NAME] Finalizado" $MAIL_RECIPIENT
+echo "Subject: $SUBJECT
+$MESSAGE" | "$MAIL" "$MAIL_RECIPIENT"
+#rm -f $LOCK_FILE
+
+#else
+TIME_NOW=$(date +"%Y-%m-%d %T")
+SUBJECT2="'$SCRIPT_NAME' !!AVISO!! ainda está em execução"
+MESSAGE2="'$SCRIPT_NAME' em '$TIME_NOW' ainda está em execução"
+#echo "$SCRIPT_NAME em $TIME_NOW ainda está em execução" | $MAIL -s "[$SCRIPT_NAME] !!AVISO!! ainda está em execução" $MAIL_RECIPIENT
+echo "Subject: $SUBJECT2
+$MESSAGE2" | "$MAIL" "$MAIL_RECIPIENT"
+echo "$SCRIPT_NAME em $TIME_NOW ainda está em execução"
+echo "[`date`] ==== Fim de rotina..."
+#fi
 
 	echo
-	echo "Dados Importados"
-    echo "Pressione qualquer tecla para continuar..."
+    echo "Pressione <ENTER> para continuar..."
     read msg
-	Principal
-} 
+	
+        Principal
+}
 Principal
-
-echo "[`date`] ==== Fim da rotina..."
-
-#https://syslint.com/blog/tutorial/zimbra-server-migration-and-zimbra-account-transfer-the-perfect-method/
-#https://blog.johannfenech.com/migrating-opensource-zimbra-8-6-0-on-centos-6-8-to-zimbra-8-7-1-on-centos-7-safely-and-with-no-downtime/
