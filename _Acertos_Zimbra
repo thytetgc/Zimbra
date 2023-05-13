@@ -30,7 +30,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra  v1.34         |"
+    echo "|           Utilitario para Zimbra  v1.35         |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -480,16 +480,20 @@ $UsrZ 'zmprov mcf zimbraInvalidLoginFilterReinstateIpTaskIntervalInMin 5'
 
 #Aplicando Tunning de Conexões
 echo "Aplicando Tunning de Conexões"
+$UsrZ 'zmprov ms `zmhostname` zimbraHttpSSLNumThreads 100'
 $UsrZ 'zmprov ms `zmhostname` zimbraHttpNumThreads 500'
 $UsrZ 'zmprov ms `zmhostname` zimbraPop3NumThreads 200'
 $UsrZ 'zmprov ms `zmhostname` zimbraPop3MaxConnections 400'
 $UsrZ 'zmprov ms `zmhostname` zimbraImapNumThreads 2000'
 $UsrZ 'zmprov ms `zmhostname` zimbraImapMaxConnections 2000'
+$UsrZ 'zmprov mcf zimbraHttpSSLNumThreads 100'
 $UsrZ 'zmprov mcf zimbraHttpNumThreads 500'
 $UsrZ 'zmprov mcf zimbraPop3NumThreads 200'
 $UsrZ 'zmprov mcf zimbraPop3MaxConnections 400'
 $UsrZ 'zmprov mcf zimbraImapNumThreads 2000'
 $UsrZ 'zmprov mcf zimbraImapMaxConnections 2000'
+$UsrZ 'zmlocalconfig -e imap_throttle_command_limit=500'
+$UsrZ 'zmlocalconfig -e zimbra_session_limit_imap=50'
 	 echo "+-------------------------------------------------+OK"
 
 #Aplicando Tunning do Java servidor com 16GB Ram
