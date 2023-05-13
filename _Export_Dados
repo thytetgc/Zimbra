@@ -35,7 +35,7 @@ fi
      echo "+-------------------------------------------------+"
      echo "|           Utilitario para Zimbra                |"
      echo "+-------------------------------------------------+"
-     echo "| 		Exportar Contas do Zimbra v1.34			 |"
+     echo "| 		Exportar Contas do Zimbra v1.36			 |"
      echo "+-------------------------------------------------+"
      echo "| Escrito por:                                    |"
      echo "| Thiago Castro - www.hostlp.cloud                |"
@@ -79,10 +79,28 @@ fi
 	DEST="/opt/zimbra/backup/"
 	mkdir /tmp/$HOST-BKP-$(date "+%Y%m%d") >/dev/null 2>/dev/null
 	\mv -f $DEST /tmp/$HOST-BKP-$(date "+%Y%m%d") 2>/dev/null
-	mkdir $DEST/cos $DEST/dominio $DEST/contas $DEST/contatos $DEST/listas $DEST/alias $DEST/assinaturas $DEST/filtros $DEST/briefcase $DEST/agendas $DEST/chats $DEST/tags $DEST/comments $DEST/documentos $DEST/tarefas $DEST/mysql -p 2>/dev/null
+	mkdir $DEST/ldap $DEST/cos $DEST/dominio $DEST/contas $DEST/contatos $DEST/listas $DEST/alias $DEST/assinaturas $DEST/filtros $DEST/briefcase $DEST/agendas $DEST/chats $DEST/tags $DEST/comments $DEST/documentos $DEST/tarefas $DEST/mysql -p 2>/dev/null
 	chown zimbra:zimbra $DEST -R
 	
 #######################################################
+
+	echo "Exportando LDAP..."
+	echo
+/opt/zimbra/libexec/zmslapcat $DEST/ldap
+	echo "+-------------------------------------------------+OK"
+	echo
+
+	echo "Exportando Configs LDAP..."
+	echo
+/opt/zimbra/libexec/zmslapcat -c $DEST/ldap
+	echo "+-------------------------------------------------+OK"
+	echo
+
+	echo "Exportando AccessLog LDAP..."
+	echo
+/opt/zimbra/libexec/zmslapcat -a $DEST/ldap
+	echo "+-------------------------------------------------+OK"
+	echo
 
 	echo "Exportando COS..."
 	echo
@@ -123,29 +141,29 @@ $zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zm
 	echo "+-------------------------------------------------+OK"
 	echo
 
-	echo "Exportando Chats..."
-	echo
-$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Chats/?fmt=tgz" > $DEST/chats/"$user"-chats.tgz 2>/dev/null
-	printf 'OK --> '
-	echo "$user" ; done
-	echo "+-------------------------------------------------+OK"
-	echo
+#	echo "Exportando Chats..."
+#	echo
+#$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Chats/?fmt=tgz" > $DEST/chats/"$user"-chats.tgz 2>/dev/null
+#	printf 'OK --> '
+#	echo "$user" ; done
+#	echo "+-------------------------------------------------+OK"
+#	echo
 
-	echo "Exportando Tags..."
-	echo
-$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Tags/?fmt=tgz" > $DEST/tags/"$user"-tags.tgz 2>/dev/null
-	printf 'OK --> '
-	echo "$user" ; done 
-	echo "+-------------------------------------------------+OK"
-	echo
+#	echo "Exportando Tags..."
+#	echo
+#$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Tags/?fmt=tgz" > $DEST/tags/"$user"-tags.tgz 2>/dev/null
+#	printf 'OK --> '
+#	echo "$user" ; done 
+#	echo "+-------------------------------------------------+OK"
+#	echo
 
-	echo "Exportando Comments..."
-	echo
-$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Comments/?fmt=tgz" > $DEST/comments/"$user"-comments.tgz 2>/dev/null
-	printf 'OK --> '
-	echo "$user" ; done 
-	echo "+-------------------------------------------------+OK"
-	echo
+#	echo "Exportando Comments..."
+#	echo
+#$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Comments/?fmt=tgz" > $DEST/comments/"$user"-comments.tgz 2>/dev/null
+#	printf 'OK --> '
+#	echo "$user" ; done 
+#	echo "+-------------------------------------------------+OK"
+#	echo
 		
 	echo "Exportando Contatos..."
 	echo
@@ -156,13 +174,13 @@ $zmmailbox -z -m $user gru "/Emailed Contacts/?fmt=tgz" > $DEST/contatos/"$user"
 	echo "+-------------------------------------------------+OK"
 	echo
 
-	echo "Exportando Documentos..."
-	echo
-$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Notebook/?fmt=tgz" > $DEST/documentos/"$user"-documentos.tgz 2>/dev/null
-	printf 'OK --> '
-	echo "$user" ; done
-	echo "+-------------------------------------------------+OK"
-	echo
+#	echo "Exportando Documentos..."
+#	echo
+#$zmprov -l gaa | egrep -v "^virus|^ham|^spam|^galsync" | while read user; do $zmmailbox -z -m $user gru "/Notebook/?fmt=tgz" > $DEST/documentos/"$user"-documentos.tgz 2>/dev/null
+#	printf 'OK --> '
+#	echo "$user" ; done
+#	echo "+-------------------------------------------------+OK"
+#	echo
 
 	echo "Exportando Tarefas..."
 	echo
