@@ -28,7 +28,7 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra  v1.36         |"
+    echo "|           Utilitario para Zimbra  v1.35         |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -145,30 +145,42 @@ n|N|Nao|nao)
 
 IAM() {
 # Gerando lista de contas bloqueadas
-$zmprov -l sa "(zimbraAccountStatus=locked)" > /opt/locked_accounts_$(date "+%d%m%Y%H%M%S")
-$zmprov -l sa "(zimbraAccountStatus=lockout)" >> /opt/locked_accounts_$(date "+%d%m%Y%H%M%S")
-$zmprov -l sa "(zimbraAccountStatus=closed)" >> /opt/locked_accounts_$(date "+%d%m%Y%H%M%S")
+mv -f /opt/locked_accounts /opt/locked_accounts_$(date "+%d%m%Y%H%M%S")
+$zmprov -l sa "(zimbraAccountStatus=locked)" > /opt/locked_accounts
+$zmprov -l sa "(zimbraAccountStatus=lockout)" >> /opt/locked_accounts
+$zmprov -l sa "(zimbraAccountStatus=closed)" >> /opt/locked_accounts
 
-#echo "Listando todas as contas"
-for EMAIL in $($zmprov -l gaa | sort | egrep -v "^admin"); do
-#	 echo "+-------------------------------------------------+OK"
+# Gerando lista de todas as contas
+$zmprov -l gaa | sort | egrep -v "^admin" > /opt/all_accounts
+
+echo "Colocando todas as contas em manutenção"
+echo
+>/tmp/accounts_maintenance ; for EMAIL in `cat /opt/all_accounts`; do
 echo $EMAIL
-
-echo "Colocando a conta em manutenção"
-$zmprov ma $EMAIL zimbraAccountStatus maintenance
-#	 echo "+-------------------------------------------------+OK"
-	 
-echo "Deletando o index atual da conta"
-rm /opt/zimbra/index/0/$($zmprov gmi $EMAIL | grep mailboxId | awk '{ print $2 }')/index/* -Rf
-	 echo "+-------------------------------------------------+OK"
-done
+echo "ma $EMAIL zimbraAccountStatus maintenance" >> /tmp/accounts_maintenance; done
+cat /tmp/accounts_maintenance | /opt/zimbra/bin/zmprov >/dev/null
+	echo "+-------------------------------------------------+OK"
+ 
+echo
+echo "Deletando o index de todas as contas"
+echo
+for EMAIL in `cat /opt/all_accounts`; do
+#>/tmp/accounts_index ; for EMAIL in $($zmprov -l gaa | sort | egrep -v "^admin"); do
+echo $EMAIL
+#echo "/opt/zimbra/index/0/$($zmprov gmi $EMAIL | grep mailboxId | awk '{ print $2 }')/index/* -Rf" >> /tmp/accounts_index; done
+#cat /tmp/accounts_index | rm >/dev/null
+rm /opt/zimbra/index/0/$($zmprov gmi $EMAIL | grep mailboxId | awk '{ print $2 }')/index/* -Rf; done
 	 echo "+-------------------------------------------------+OK"
 
 echo "Reiniciando MailBoxD"
+echo
 $UsrZ 'zmmailboxdctl restart'
 	 echo "+-------------------------------------------------+OK"
 
 echo "Indexando"
+echo
+for EMAIL in `cat /opt/all_accounts`; do
+echo $EMAIL
 $zmprov rim $EMAIL start >/dev/null
 
 while [ `$zmprov rim $EMAIL status|wc -l` != 1 ]
@@ -178,16 +190,24 @@ do
 echo -n . && sleep 2
 done
 echo .
+done
 	 echo "+-------------------------------------------------+OK"
 
 #echo "Status da Indexação"
 #$zmprov rim $EMAIL status | tail -n 1
 #	 echo "+-------------------------------------------------+OK"
 
+echo
 echo "Reativando a conta..."
-$zmprov ma $EMAIL zimbraAccountStatus active
-for USER in `cat /opt/locked_accounts_$(date "+%d%m%Y%H%M%S")`; do /opt/zimbra/bin/zmprov ma $USER zimbraAccountStatus locked; done
+echo
+>/tmp/accounts_maintenance ; for EMAIL in `cat /opt/all_accounts`; do
+echo $EMAIL
+echo "ma $EMAIL zimbraAccountStatus active" >> /tmp/accounts_maintenance; done
+cat /tmp/accounts_maintenance | /opt/zimbra/bin/zmprov >/dev/null
 	 echo "+-------------------------------------------------+OK"
+
+# Voltando as contas bloqueadas
+for USER in `cat /opt/locked_accounts`; do /opt/zimbra/bin/zmprov ma $USER zimbraAccountStatus locked; done
 
 echo
 echo "Deseja Reiniciar o Zimbra? - Sim/Nao"
