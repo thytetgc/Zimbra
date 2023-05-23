@@ -8,26 +8,27 @@ echo "[`date`] ==== Inicio de rotina..."
 
 clear
 
-#Checa se o usuario é zimbra
+#Checa se o usuario é root
 LOCAL_USER=`id -u -n`
 
-if [ $LOCAL_USER != "zimbra" ] ; then
-	echo "     Rodar como usuario zimbra"
+if [ $LOCAL_USER != "root" ] ; then
+	echo "     Rodar como usuario root"
 	echo "     saindo..."
 	echo ""
 	exit
 fi
 	dir="Diretorio Atual		 : `pwd`"
 	hostname="Hostname			 : `hostname --fqdn`"
-	ip="IP						 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
+	ip="IP						 : `wget -qO - icanhazip.com`"
+	#ip="IP						 : `ifconfig | awk 'NR>=2 && NR<=2' | awk '{print $3}'`"
     versaoso="Versao S.O.		 : `lsb_release -d | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
 	release="Release			 : `lsb_release -r | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
 	codename="Codename			 : `lsb_release -c | cut -d : -f 2- | sed 's/^[ \t]*//;s/[ \t]*$//'`"
 	kernel="Kernel				 : `uname -r`"
 	arquitetura="Arquitetura	 : `uname -m`"
-	#versaozimbra="Versao Zimbra : `zmcontrol -v`"
+	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-    echo "|           Utilitario para Zimbra  v1.5          |"
+    echo "|           Utilitario para Zimbra  v1.35         |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
@@ -59,44 +60,127 @@ fi
 	echo
 	echo "==================EXECUTANDO======================="
 	echo
-	
-#Variavel
+
+
+#Variaveis
 UsrZ="su - zimbra -c"
+source /opt/zimbra/bin/zmshutil
+zmsetvars
+zmprov="/opt/zimbra/bin/zmprov"
 
-#nome do servidor zimbra
-SERVIDOR="`hostname --fqdn`"
+Principal() {
+clear
+		echo
+        echo "Escolha qual forma de Indexar"
+        echo
+		echo "1. Indexar por e-mail"
+        echo "2. Indexar todos os e-mails"
+		echo
+        echo "3. Sair"
+        echo
+        echo
+		echo -n "Entre com a opcao desejada => "
+		read opcao
+		echo
+		case $opcao in
+        1) IFM ;;
+        2) IAM ;;
+        3) exit ;;
+        *) "Opcao desconhecida." ; echo ; Principal ;;
+     esac
+}
 
-echo "Capiturando contas de e-mail..."
-# zmprov gaa -s $SERVIDOR => lista todos os email cadastrados
-for EMAIL in $(zmprov -l gaa -s `zmhostname`)
-do
+IFM() {
+echo "Digite o e-mail a ser indexado"
+echo -n "E-Mail: "
+read EMAIL
+echo
+
+echo "Colocando a conta em manutenção"
+$zmprov ma $EMAIL zimbraAccountStatus maintenance
 	 echo "+-------------------------------------------------+OK"
-echo $EMAIL
-
-echo "Colocando a conta em manutenção..."
-zmprov ma $EMAIL zimbraAccountStatus maintenance
 	 
-echo "Deletando o indexe da conta..."
-rm /opt/zimbra/index/0/$(zmprov gmi $EMAIL | grep mailboxId | awk '{ print $2 }')/index/* -Rf
-done
+echo "Deletando o index atual da conta"
+rm /opt/zimbra/index/0/$($zmprov gmi $EMAIL | grep mailboxId | awk '{ print $2 }')/index/* -Rf
 	 echo "+-------------------------------------------------+OK"
 
-echo "Reiniciando o zimbra..."
-zmcontrol stop
-zmcontrol start
+echo "Indexando"
+$zmprov rim $EMAIL start >/dev/null
 
-echo "Capiturando contas de e-mail..."
-for EMAIL in $(zmprov -l gaa -s `zmhostname`)
+while [ `$zmprov rim $EMAIL status|wc -l` != 1 ]
+
 do
-	 echo "+-------------------------------------------------+OK"
-echo $EMAIL
 
-echo "Indexando a maibox..."
-zmprov rim $EMAIL start
+echo -n . && sleep 2
+done
+echo .
+	 echo "+-------------------------------------------------+OK"
 
 echo "Reativando a conta..."
-zmprov ma $EMAIL zimbraAccountStatus active
+$zmprov ma $EMAIL zimbraAccountStatus active
+	 echo "+-------------------------------------------------+OK"
+
+echo
+echo "Deseja Reiniciar o Zimbra? - Sim/Nao"
+read CONFIRMA
+case $CONFIRMA in
+s|S|Sim|sim)
+echo "Reiniciando o zimbra..."
+$UsrZ 'zmcontrol restart'
+               ;;
+n|N|Nao|nao)
+                ;;
+*) echo  "Opcao Invalida" ;; esac
+
+}
+Principal
+
+IAM() {
+echo "Listando todas as contas"
+for EMAIL in $($zmprov -l gaa)
+do
+	 echo "+-------------------------------------------------+OK"
+echo $EMAIL
+echo
+
+echo "Colocando a conta em manutenção"
+$zmprov ma $EMAIL zimbraAccountStatus maintenance
+	 echo "+-------------------------------------------------+OK"
+	 
+echo "Deletando o index atual da conta"
+rm /opt/zimbra/index/0/$($zmprov gmi $EMAIL | grep mailboxId | awk '{ print $2 }')/index/* -Rf
+	 echo "+-------------------------------------------------+OK"
+
+echo "Indexando"
+$zmprov rim $EMAIL start >/dev/null
+
+while [ `$zmprov rim $EMAIL status|wc -l` != 1 ]
+
+do
+
+echo -n . && sleep 2
+done
+echo .
+	 echo "+-------------------------------------------------+OK"
+
+echo "Reativando a conta..."
+$zmprov ma $EMAIL zimbraAccountStatus active
 done
 	 echo "+-------------------------------------------------+OK"
+
+echo
+echo "Deseja Reiniciar o Zimbra? - Sim/Nao"
+read CONFIRMA
+case $CONFIRMA in
+s|S|Sim|sim)
+echo "Reiniciando o zimbra..."
+$UsrZ 'zmcontrol restart'
+               ;;
+n|N|Nao|nao)
+                ;;
+*) echo  "Opcao Invalida" ;; esac
+
+}
+Principal
 
 echo "[`date`] ==== Fim de rotina..."
