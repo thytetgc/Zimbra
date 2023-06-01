@@ -27,11 +27,11 @@ fi
 	arquitetura="Arquitetura	 : `uname -m`"
 	versaozimbra="Versao Zimbra : `su - zimbra -c 'zmcontrol -v'`"
     echo "+-------------------------------------------------+"
-     echo "|           Utilitario para Zimbra     v1.5      |"
+     echo "|           Utilitario para Zimbra     v1.6      |"
     echo "+-------------------------------------------------+"
     echo "+-------------------------------------------------+"
     echo "| Escrito por:                                    |"
-    echo "| Thiago Castro - www.hostlp.net                  |"
+    echo "| Thiago Castro - www.hostlp.cloud                |"
     echo "+-------------------------------------------------+"
     echo
     echo $dir
@@ -73,7 +73,7 @@ $UsrZ 'zmprov cpc default "'$NEWCOS'"'
 	 
 echo -n "Digite a descrição do novo COS: "
 read DESCRICAO
-$UsrZ 'zmprov mc "'$NEWCOS'" description '$DESCRICAO''
+$UsrZ 'zmprov mc "'$NEWCOS'" description "'$DESCRICAO'"'
 	 echo "+-------------------------------------------------+OK"
 
 echo "Alterar Quota padrão por usuario do dominio em bytes (1073741824 = 1GB / 2147483648 = 2GB / 3221225472 = 3GB / 4294967296 = 4GB / 5368709120 = 5GB / 0 = ILIMITADO)"
