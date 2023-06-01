@@ -104,10 +104,10 @@ echo "Pegando ID das mensagens - $email"
 	 echo
 	 
 for msgid in `zmmailbox -z -m "$email" s -l 999 -t message "in:Junk" | sort | grep mess | awk '{print $2}'`; do
+	 echo "+-------------------------------------------------+OK"
 	 
 echo "Movendo da pasta Spam para Caixa de Entrada - MsgID: $msgid"
 zmmailbox -z -m "$email" mm $msgid Inbox;
-	 echo "+-------------------------------------------------+OK"
 
 done
 	 echo "+-------------------------------------------------+OK"
@@ -128,14 +128,14 @@ echo "Pegando contas de e-mail"
 	 echo "+-------------------------------------------------+OK"
 	 echo
 	 
-for email in `zmprov -l gaa | sort | grep $domain`; do
+for email in `zmprov -l gaa | sort | egrep -v "^virus|^ham|^spam|^galsync" | grep $domain`; do
+	 echo "+-------------------------------------------------+OK"
 
 echo "Pegando ID das mensagens - $email"
 for msgid in `zmmailbox -z -m "$email" s -l 999 -t message "in:Junk" |sort | grep mess | awk '{print $2}'`; do
 	 
 echo "Movendo da pasta Spam para Caixa de Entrada - MsgID: $msgid"
 zmmailbox -z -m "$email" mm $msgid Inbox;
-	 echo "+-------------------------------------------------+OK"
 
 	done
 done
@@ -153,14 +153,14 @@ echo "Pegando todas as contas de e-mail"
 	 echo
 
 for domain in `zmprov -l gaa | sort`; do	 
-for email in `zmprov -l gaa | sort | grep $domain`; do
+for email in `zmprov -l gaa | sort | egrep -v "^virus|^ham|^spam|^galsync" | grep $domain`; do
+	 echo "+-------------------------------------------------+OK"
 
 echo "Pegando ID das mensagens - $email"
 for msgid in `zmmailbox -z -m "$email" s -l 999 -t message "in:Junk" |sort | grep mess | awk '{print $2}'`; do
 	 
 echo "Movendo da pasta Spam para Caixa de Entrada - MsgID: $msgid"
 zmmailbox -z -m "$email" mm $msgid Inbox;
-	 echo "+-------------------------------------------------+OK"
 
 		done
 	done
