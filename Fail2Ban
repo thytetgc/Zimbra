@@ -1,0 +1,268 @@
+sudo apt-get update ; apt-get install mutt fail2ban -y
+
+ln -s /opt/zimbra/common/sbin/sendmail /usr/sbin/sendmail
+touch /var/log/secure
+ln -s /var/log/secure /var/log/auth.log
+
+mv /etc/fail2ban/jail.d/defaults-debian.conf /etc/fail2ban/jail.d/defaults-debian.conf.bkp
+mv /etc/fail2ban/jail.conf /etc/fail2ban/jail.conf.bkp
+
+echo '# ===============================================================================================================
+# Fail2Ban Arquivo de Configuração
+
+#[INCLUDES]
+#before = paths-debian.conf
+
+[DEFAULT]
+ignoreip        = localhost
+# Bloqueia por 12 horas
+bantime         = 21600
+# Permanece registrado por 1 hora
+findtime        = 3600
+# No maximo 30 tentativas
+maxretry        = 30
+usedns          = warn
+backend         = auto
+#logencoding    = auto
+#enabled        = false
+#filter         = %(__name__)s
+mta             = sendmail
+#protocol       = tcp
+chain           = INPUT
+port            = 0:65535
+
+destemail       = curioso@pega.me
+sendername      = Fail2Ban
+# Default action to take: ban only
+action          = iptables[name=%(__name__)s, port=%(port)s]
+
+# ===============================================================================================================
+
+[sshd]
+enabled         = true
+filter          = sshd
+action          = iptables-multiport[name=SSH, port="22,1804", protocol=tcp]
+                sendmail[name=SSH, dest=curioso@pega.me]
+logpath         = /var/log/auth.log
+maxretry        = 1
+
+[zimbra-smtp]
+enabled         = true
+filter          = zimbra-smtp
+action          = iptables-multiport[name=Zimbra-SMTP, port="25,465,587", protocol=tcp]
+                sendmail[name=Zimbra-SMTP, dest=curioso@pega.me]
+logpath         = /var/log/zimbra.log
+maxretry        = 10
+
+#[zimbra-pop]
+#enabled         = true
+#filter          = zimbra-pop
+#action          = iptables-multiport[name=Zimbra-POP, port="110,995", protocol=tcp]
+#                sendmail[name=Zimbra-POP, dest=curioso@pega.me]
+#logpath         = /opt/zimbra/log/mailbox.log
+#                  /opt/zimbra/log/audit.log
+
+#[zimbra-imap]
+#enabled         = true
+#filter          = zimbra-imap
+#action          = iptables-multiport[name=Zimbra-IMAP, port="143,993", protocol=tcp]
+#                sendmail[name=Zimbra-IMAP, dest=curioso@pega.me]
+#logpath         = /opt/zimbra/log/mailbox.log
+#                  /opt/zimbra/log/audit.log
+
+[zimbra-webmail]
+enabled         = true
+filter          = zimbra-webmail
+action          = iptables-multiport[name=Zimbra-Webmail, port="80,443", protocol=tcp]
+                sendmail[name=Zimbra-Webmail, dest=curioso@pega.me]
+logpath         = /opt/zimbra/log/mailbox.log
+maxretry        = 10
+
+[zimbra-admin]
+enabled         = true
+filter          = zimbra-admin
+action          = iptables-multiport[name=Zimbra-Admin, port="80,443,7071", protocol=tcp]
+                sendmail[name=Zimbra-Admin, dest=curioso@pega.me]
+logpath         = /opt/zimbra/log/mailbox.log
+maxretry        = 5
+
+#[apache]
+#enabled         = true
+#filter          = apache-auth
+#action          = iptables-multiport[name=Apache, port="80,443", protocol=tcp]
+#                  mutt[name=Apache, dest=curioso@pega.me]
+#logpath         = /var/log/apache*/*error.log
+
+#[apache-overflows]
+#enabled         = true
+#filter          = apache-overflows
+#action          = iptables-multiport[name=Apache-Overflows, port="80,443", protocol=tcp]
+#                  mutt[name=Apache-Overflows, dest=curioso@pega.me]
+#logpath         = /var/log/apache*/*error.log
+
+#[apache-badbots]
+#enabled         = true
+#filter          = apache-badbots
+#action          = iptables-multiport[name=Apache-badbots, port="80,443", protocol=tcp]
+#                  mutt[name=Apache-badbots, dest=curioso@pega.me]
+#logpath         = /var/log/apache*/*error.log
+
+#[apache-nohome]
+#enabled         = true
+#filter          = apache-nohome
+#action          = iptables-multiport[name=Apache-NoHome, port="80,443", protocol=tcp]
+#                  mutt[name=Apache-NoHome, dest=curioso@pega.me]
+#logpath         = /var/log/apache*/*error.log
+
+#[php-url-fopen]
+#enabled         = true
+#filter          = php-url-fopen
+#action          = iptables-multiport[name=PHP-URL-Fopen, port="80,443", protocol=tcp]
+#                  mutt[name=PHP-URL-Fopen, dest=curioso@pega.me]
+#logpath         = /var/log/apache*/*error.log
+
+# ===============================================================================================================' echo > /etc/fail2ban/jail.conf
+
+echo '# ===============================================================================================================
+# Fail2Ban Arquivo de Configuração - ZIMBRA-WEBMAIL
+
+[Definition]
+
+failregex = .*ip=<HOST>;ua=zclient.*authentication failed for .*
+
+ignoreregex =
+# ===============================================================================================================' echo > /etc/fail2ban/filter.d/zimbra-webmail.conf
+
+
+echo '# ===============================================================================================================
+# Fail2Ban Arquivo de Configuração - ZIMBRA-ADMIN
+
+[Definition]
+
+failregex = .*ip=<HOST>;port=.*;ua=ZimbraWebClient .* authentication failed for .*
+
+ignoreregex =
+# ===============================================================================================================' echo > /etc/fail2ban/filter.d/zimbra-admin.conf
+
+echo '# ===============================================================================================================
+# Fail2Ban Arquivo de Configuração - ZIMBRA-SMTP
+
+[INCLUDES]
+
+before = common.conf
+
+[Definition]
+
+_daemon = postfix/(submission/)?smtp(d|s)
+
+failregex = ^%(__prefix_line)sNOQUEUE: reject: RCPT from \S+\[<HOST>\]: 554 5\.7\.1 .*$
+            ^%(__prefix_line)sNOQUEUE: reject: RCPT from \S+\[<HOST>\]: 450 4\.7\.1 Client host rejected: cannot find your hostname, (\[\S*\]); from=<\S*> to=<\S+> proto=ESMTP helo=<\S*>$
+            ^%(__prefix_line)sNOQUEUE: reject: RCPT from \S+\[<HOST>\]: 450 4\.7\.1 : Helo command rejected: Host not found; from=<> to=<> proto=ESMTP helo= *$
+            ^%(__prefix_line)sNOQUEUE: reject: VRFY from \S+\[<HOST>\]: 550 5\.1\.1 .*$
+            ^%(__prefix_line)simproper command pipelining after \S+ from [^[]*\[<HOST>\]:?$
+            (?i): warning: [-._\w]+\[<HOST>\]: SASL (?:LOGIN|PLAIN|(?:CRAM|DIGEST)-MD5) authentication failed(: [A-Za-z0-9+/ ]*)?$
+#			 failregex = postfix\/submission\/smtpd\[\d+\]: warning: .*\[<HOST>\]: SASL \w+ authentication failed: authentication failure$
+#			 postfix\/smtps\/smtpd\[\d+\]: warning: .*\[<HOST>\]: SASL \w+ authentication failed: authentication failure$
+
+ignoreregex =
+# ===============================================================================================================' echo > /etc/fail2ban/filter.d/zimbra-smtp.conf
+
+echo '# ===============================================================================================================
+# Fail2Ban Arquivo de Configuração - ZIMBRA-IMAP
+
+[Definition]
+
+failregex = .*Imap.*ip=<HOST>;.*error=authentication failed for .*
+            .*Imap.*ip=<HOST>;.*account - authentication failed for .*
+
+ignoreregex =
+# ===============================================================================================================' echo > /etc/fail2ban/filter.d/zimbra-imap.conf
+
+echo '# ===============================================================================================================
+# Fail2Ban Arquivo de Configuração - ZIMBRA-POP
+
+[Definition]
+
+failregex = .*Pop.*ip=<HOST>;.*error=authentication failed for .*
+            .*Pop.*ip=<HOST>;.*account - authentication failed for .*
+
+ignoreregex =
+# ===============================================================================================================' echo > /etc/fail2ban/filter.d/zimbra-pop.conf
+
+echo '# ===============================================================================================================
+# Fail2Ban Arquivo de Configuração - SENDMAIL
+
+[INCLUDES]
+
+before = sendmail-common.conf
+
+[Definition]
+
+actionstart = printf %%b "Subject: [Fail2Ban] <name>: iniciou em `uname -n`
+             Date: `LC_TIME=C date -u +"%%a, %%d %%h %%Y %%T +0000"`
+             From: <sendername> <<sender>>
+             To: <dest>\n
+             Olá,\n
+             O jail <name> foi iniciado com sucesso.\n
+             Saudações,\n
+             Fail2Ban" | /opt/zimbra/common/sbin/sendmail -f <sender> <dest>
+
+actionstop = printf %%b "Subject: [Fail2Ban] <name>: parou em `uname -n`
+             Date: `LC_TIME=C date -u +"%%a, %%d %%h %%Y %%T +0000"`
+             From: <sendername> <<sender>>
+             To: <dest>\n
+             Olá,\n
+             O jail <name> foi parado.\n
+             Saudações,\n
+             Fail2Ban" | /opt/zimbra/common/sbin/sendmail -f <sender> <dest>
+
+actioncheck = 
+
+actionban = printf %%b "Subject: [Fail2Ban] <name>: banido <ip> de `uname -n`
+            Date: `LC_TIME=C date -u +"%%a, %%d %%h %%Y %%T +0000"`
+            From: <sendername> <<sender>>
+            To: <dest>\n
+            Olá,\n
+            O IP <ip> acaba de ser banido por Fail2Ban depois de
+            <failures> tentativas contra <name>.\n
+            Saudações,\n
+            Fail2Ban" | /opt/zimbra/common/sbin/sendmail -f <sender> <dest>
+
+actionunban = printf %%b "Subject: [Fail2Ban] <name>: desbanido <ip> de `uname -n`
+            Date: `LC_TIME=C date -u +"%%a, %%d %%h %%Y %%T +0000"`
+            From: <sendername> <<sender>>
+            To: <dest>\n
+            Olá,\n
+            O IP <ip> acaba de ser desbanido contra <name>.\n
+            Saudações,\n
+            Fail2Ban" | /opt/zimbra/common/sbin/sendmail -f <sender> <dest>
+
+[Init]
+
+name = default
+# ===============================================================================================================' echo > /etc/fail2ban/action.d/sendmail.conf
+
+
+echo '# ===============================================================================================================
+# Fail2Ban Arquivo de Configuração - MUTT
+
+[Definition]
+
+actionstart = echo "O jail <name> foi iniciado com sucesso." | /usr/bin/mutt -F /root/.muttrc -s "[Fail2Ban] <name>: iniciado em `uname -n`" <dest>
+
+actionstop = echo "O jail <name> foi parado." | /usr/bin/mutt -F /root/.muttrc -s "[Fail2Ban] <name>: parado em `uname -n`" <dest>
+
+actioncheck = 
+
+actionban = echo "O IP <ip> acaba de ser banido por Fail2Ban depois de <failures> tentativas contra <name>" | /usr/bin/mutt /root/.muttrc -s "[Fail2Ban] <name>: banido <ip> em `uname -n`" <dest>
+
+actionunban = echo "O IP <ip> acaba de ser desbanido contra <name>" | /usr/bin/mutt /root/.muttrc -s "[Fail2Ban] <name>: desbanido <ip> em `uname -n`" <dest>
+
+[Init]
+
+name = default
+# ===============================================================================================================' echo > /etc/fail2ban/action.d/mutt.conf
+
+service fail2ban restart ; fail2ban-client status ; tail -f /var/log/fail2ban.log
+systemctl restart fail2ban; systemctl status fail2ban
+fail2ban-client -v status 
