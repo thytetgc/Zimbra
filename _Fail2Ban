@@ -15,11 +15,11 @@ echo '# ========================================================================
 
 [DEFAULT]
 ignoreip        = localhost
-# Bloqueia por 7 dias
-bantime         = 604800
+# Bloqueia por 12 horas
+bantime         = 21600
 # Permanece registrado por 1 hora
 findtime        = 3600
-# No maximo 20 tentativas
+# No maximo 30 tentativas
 maxretry        = 30
 usedns          = warn
 backend         = auto
@@ -31,7 +31,7 @@ mta             = sendmail
 chain           = INPUT
 port            = 0:65535
 
-#destemail       = SEU-EMAIL
+destemail       = curioso@pega.me
 sendername      = Fail2Ban
 # Default action to take: ban only
 action          = iptables[name=%(__name__)s, port=%(port)s]
@@ -42,7 +42,7 @@ action          = iptables[name=%(__name__)s, port=%(port)s]
 enabled         = true
 filter          = sshd
 action          = iptables-multiport[name=SSH, port="22,1804", protocol=tcp]
-#                sendmail[name=SSH, dest=SEU-EMAIL]
+                sendmail[name=SSH, dest=curioso@pega.me]
 logpath         = /var/log/auth.log
 maxretry        = 1
 
@@ -50,36 +50,85 @@ maxretry        = 1
 enabled         = true
 filter          = zimbra-smtp
 action          = iptables-multiport[name=Zimbra-SMTP, port="25,465,587", protocol=tcp]
- #               sendmail[name=Zimbra-SMTP, dest=SEU-EMAIL]
+                sendmail[name=Zimbra-SMTP, dest=curioso@pega.me]
 logpath         = /var/log/zimbra.log
 maxretry        = 10
 
+#[zimbra-pop]
+#enabled         = true
+#filter          = zimbra-pop
+#action          = iptables-multiport[name=Zimbra-POP, port="110,995", protocol=tcp]
+#                sendmail[name=Zimbra-POP, dest=curioso@pega.me]
+#logpath         = /opt/zimbra/log/mailbox.log
+#                  /opt/zimbra/log/audit.log
+
+#[zimbra-imap]
+#enabled         = true
+#filter          = zimbra-imap
+#action          = iptables-multiport[name=Zimbra-IMAP, port="143,993", protocol=tcp]
+#                sendmail[name=Zimbra-IMAP, dest=curioso@pega.me]
+#logpath         = /opt/zimbra/log/mailbox.log
+#                  /opt/zimbra/log/audit.log
 
 [zimbra-webmail]
 enabled         = true
 filter          = zimbra-webmail
 action          = iptables-multiport[name=Zimbra-Webmail, port="80,443", protocol=tcp]
-#                sendmail[name=Zimbra-Webmail, dest=SEU-EMAIL]
+                sendmail[name=Zimbra-Webmail, dest=curioso@pega.me]
 logpath         = /opt/zimbra/log/mailbox.log
 maxretry        = 10
 
 [zimbra-admin]
 enabled         = true
 filter          = zimbra-admin
-action          = iptables-multiport[name=Zimbra-Admin, port="7071", protocol=tcp]
-#                sendmail[name=Zimbra-Admin, dest=SEU-EMAIL]
+action          = iptables-multiport[name=Zimbra-Admin, port="80,443,7071", protocol=tcp]
+                sendmail[name=Zimbra-Admin, dest=curioso@pega.me]
 logpath         = /opt/zimbra/log/mailbox.log
 maxretry        = 5
-# ===============================================================================================================' echo > /etc/fail2ban/jail.conf
 
+#[apache]
+#enabled         = true
+#filter          = apache-auth
+#action          = iptables-multiport[name=Apache, port="80,443", protocol=tcp]
+#                  mutt[name=Apache, dest=curioso@pega.me]
+#logpath         = /var/log/apache*/*error.log
+
+#[apache-overflows]
+#enabled         = true
+#filter          = apache-overflows
+#action          = iptables-multiport[name=Apache-Overflows, port="80,443", protocol=tcp]
+#                  mutt[name=Apache-Overflows, dest=curioso@pega.me]
+#logpath         = /var/log/apache*/*error.log
+
+#[apache-badbots]
+#enabled         = true
+#filter          = apache-badbots
+#action          = iptables-multiport[name=Apache-badbots, port="80,443", protocol=tcp]
+#                  mutt[name=Apache-badbots, dest=curioso@pega.me]
+#logpath         = /var/log/apache*/*error.log
+
+#[apache-nohome]
+#enabled         = true
+#filter          = apache-nohome
+#action          = iptables-multiport[name=Apache-NoHome, port="80,443", protocol=tcp]
+#                  mutt[name=Apache-NoHome, dest=curioso@pega.me]
+#logpath         = /var/log/apache*/*error.log
+
+#[php-url-fopen]
+#enabled         = true
+#filter          = php-url-fopen
+#action          = iptables-multiport[name=PHP-URL-Fopen, port="80,443", protocol=tcp]
+#                  mutt[name=PHP-URL-Fopen, dest=curioso@pega.me]
+#logpath         = /var/log/apache*/*error.log
+
+# ===============================================================================================================' echo > /etc/fail2ban/jail.conf
 
 echo '# ===============================================================================================================
 # Fail2Ban Arquivo de Configuração - ZIMBRA-WEBMAIL
 
 [Definition]
-#
-failregex = \[oip=<HOST>;.* SoapEngine - handler exception: authentication failed for .*, account not found$
-            INFO .*;oip=<HOST>;.* SoapEngine - handler exception: authentication failed for .*, invalid password$
+
+failregex = .*ip=<HOST>;ua=zclient.*authentication failed for .*
 
 ignoreregex =
 # ===============================================================================================================' echo > /etc/fail2ban/filter.d/zimbra-webmail.conf
@@ -89,29 +138,56 @@ echo '# ========================================================================
 # Fail2Ban Arquivo de Configuração - ZIMBRA-ADMIN
 
 [Definition]
-#
-failregex = INFO .*;ip=<HOST>;.* SoapEngine - handler exception: authentication failed for .*, invalid password$
-            INFO .*ip=<HOST>;.* SoapEngine - handler exception: authentication failed for .*, account not found$
-            INFO .*ip=<HOST>;port=.*;ua=ZimbraWebClient .* authentication failed for .*
+
+failregex = .*ip=<HOST>;port=.*;ua=ZimbraWebClient .* authentication failed for .*
 
 ignoreregex =
 # ===============================================================================================================' echo > /etc/fail2ban/filter.d/zimbra-admin.conf
 
-
 echo '# ===============================================================================================================
 # Fail2Ban Arquivo de Configuração - ZIMBRA-SMTP
 
+[INCLUDES]
+
+before = common.conf
+
 [Definition]
-#
-failregex = postfix\/submission\/smtpd\[\d+\]: warning: .*\[<HOST>\]: SASL \w+ authentication failed: authentication failure$
-            postfix\/smtps\/smtpd\[\d+\]: warning: .*\[<HOST>\]: SASL \w+ authentication failed: authentication failure$
+
+_daemon = postfix/(submission/)?smtp(d|s)
+
+failregex = ^%(__prefix_line)sNOQUEUE: reject: RCPT from \S+\[<HOST>\]: 554 5\.7\.1 .*$
+            ^%(__prefix_line)sNOQUEUE: reject: RCPT from \S+\[<HOST>\]: 450 4\.7\.1 Client host rejected: cannot find your hostname, (\[\S*\]); from=<\S*> to=<\S+> proto=ESMTP helo=<\S*>$
+            ^%(__prefix_line)sNOQUEUE: reject: RCPT from \S+\[<HOST>\]: 450 4\.7\.1 : Helo command rejected: Host not found; from=<> to=<> proto=ESMTP helo= *$
+            ^%(__prefix_line)sNOQUEUE: reject: VRFY from \S+\[<HOST>\]: 550 5\.1\.1 .*$
+            ^%(__prefix_line)simproper command pipelining after \S+ from [^[]*\[<HOST>\]:?$
+            (?i): warning: [-._\w]+\[<HOST>\]: SASL (?:LOGIN|PLAIN|(?:CRAM|DIGEST)-MD5) authentication failed(: [A-Za-z0-9+/ ]*)?$
+#			 failregex = postfix\/submission\/smtpd\[\d+\]: warning: .*\[<HOST>\]: SASL \w+ authentication failed: authentication failure$
+#			 postfix\/smtps\/smtpd\[\d+\]: warning: .*\[<HOST>\]: SASL \w+ authentication failed: authentication failure$
 
 ignoreregex =
 # ===============================================================================================================' echo > /etc/fail2ban/filter.d/zimbra-smtp.conf
 
+echo '# ===============================================================================================================
+# Fail2Ban Arquivo de Configuração - ZIMBRA-IMAP
 
-mv /etc/fail2ban/action.d/sendmail.conf /etc/fail2ban/action.d/sendmail.conf.bkp
+[Definition]
 
+failregex = .*Imap.*ip=<HOST>;.*error=authentication failed for .*
+            .*Imap.*ip=<HOST>;.*account - authentication failed for .*
+
+ignoreregex =
+# ===============================================================================================================' echo > /etc/fail2ban/filter.d/zimbra-imap.conf
+
+echo '# ===============================================================================================================
+# Fail2Ban Arquivo de Configuração - ZIMBRA-POP
+
+[Definition]
+
+failregex = .*Pop.*ip=<HOST>;.*error=authentication failed for .*
+            .*Pop.*ip=<HOST>;.*account - authentication failed for .*
+
+ignoreregex =
+# ===============================================================================================================' echo > /etc/fail2ban/filter.d/zimbra-pop.conf
 
 echo '# ===============================================================================================================
 # Fail2Ban Arquivo de Configuração - SENDMAIL
@@ -190,7 +266,3 @@ name = default
 service fail2ban restart ; fail2ban-client status ; tail -f /var/log/fail2ban.log
 systemctl restart fail2ban; systemctl status fail2ban
 fail2ban-client -v status 
-
-fail2ban-client status zimbra-webmail
-fail2ban-client status zimbra-admin
-fail2ban-client status zimbra-smtp
