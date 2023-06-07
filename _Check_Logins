@@ -126,6 +126,7 @@ sub drawline {
 #========================================================================
 chdir "/opt/zimbra/log";
 
+#for (glob 'mailbox.log*') {
 for (glob 'audit.log*') {
 
   $lines = 0;
@@ -139,48 +140,50 @@ for (glob 'audit.log*') {
   # zcat -f /opt/zimbra/log/audit.log* | grep -i invalid |egrep '(ImapS|Pop|http)'
   while (<IN>)
   {
-   if (m#invalid#i)
-   {
+	  if (m#invalid#i)
+	  {
           #print $_;
       if ((m#ImapS#i) && !(m#INFO#))
       {
-          my($ip,$user) = m#.*\s+\[ip=.*;[oip][ip]=(.*);via=.*;\]\s*.* failed for\s+\[(.*)\].*$#i;
-          $uagent = "imap";
-          #print " - ip is $ip, user is $user, agent is $uagent\n";
-          #print $_;
-          setlists($user, $ip, $uagent);
+        my($ip,$user) = m#[oip][ip]=(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3});.* failed for\s+\[(.*)\].*$#i;
+#        my($ip,$user) = m#.*\s+\[ip=.*;[oip][ip]=(.*);via=.*;\]\s*.* failed for\s+\[(.*)\].*$#i;
+        $uagent = "imap";
+         #print " - ip is $ip, user is $user, agent is $uagent\n";
+         #print $_;
+        setlists($user, $ip, $uagent);
       }
       elsif ((m#Pop#i) && !(m#INFO#))
       {
-         my($ip,$user) = m#[oip][ip]=(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3});.* failed for\s+\[(.*)\].*$#i;
-         $uagent = "pop";
-         #print " - ip is $ip, user is $user, agent is $uagent\n";
-         #print $_;
-         setlists($user, $ip, $uagent);
+        my($ip,$user) = m#[oip][ip]=(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3});.* failed for\s+\[(.*)\].*$#i;
+        $uagent = "pop";
+        #print " - ip is $ip, user is $user, agent is $uagent\n";
+        #print $_;
+        setlists($user, $ip, $uagent);
       }
       elsif ((m#http#i) && (m#zclient#))
       {
-          my($user,$ip,$uagent) = m#.*\s+\[name=(.*);[oip][ip]=(.*);ua=(.*);\].*$#i;
-          $uagent = "web";
-          #print " - ip is $ip, user is $user, agent is $uagent\n";
-          #print $_;
-          setlists($user, $ip, $uagent);
+        my($user,$ip,$uagent) = m#.*\s+\[name=(.*);[oip][ip]=(.*);ua=(.*);\].*$#i;
+        $uagent = "web";
+        #print " - ip is $ip, user is $user, agent is $uagent\n";
+        #print $_;
+        setlists($user, $ip, $uagent);
       }
-      elsif ((m#[oproto=smtp][smtp]#) && (m#failed#))
+#      elsif ((m#oproto=smtp#i) && (m#failed#))
+	  elsif ((m#smtp#i) && (m#failed#))
       {
-          my($ip,$user) = m#[oip][ip]=(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3});.* failed for\s+\[(.*)\].*$#i;
-          $uagent = "smtp";
-          #print " - ip is $ip, user is $user, agent is $uagent\n";
-          #print $_;
-          setlists($user, $ip, $uagent);
+        my($ip,$user) = m#[oip][ip]=(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3});.* failed for\s+\[(.*)\].*$#i;
+        $uagent = "smtp";
+        #print " - ip is $ip, user is $user, agent is $uagent\n";
+        #print $_;
+        setlists($user, $ip, $uagent);
       }
    }
    elsif (m#AuthRequest#i && ($_ !~ m/zimbra/i))
    {
-      my($user,$ip,$uagent) = m#.*\s+\[name=(.*);[oip][ip]=(.*);ua=(.*);\].*$#i;
-      ++$ip_list{$user}{$ip};
-      #if ($audit_log == 1) { print $_; }
-      #printf "%4d: - ip is %15s, user is %45s, agent is %s\n",$lines,$ip,$user,$uagent;
+		my($user,$ip,$uagent) = m#.*\s+\[name=(.*);[oip][ip]=(.*);ua=(.*);\].*$#i;
+		++$ip_list{$user}{$ip};
+		#if ($audit_log == 1) { print $_; }
+		#printf "%4d: - ip is %15s, user is %45s, agent is %s\n",$lines,$ip,$user,$uagent;
    }
    $lines++;
   } # End While (<IN>) loop
@@ -216,7 +219,7 @@ for $user (sort keys %ip_list )
 
        #  See count of how many times
         if(($failtype !~ /ip/i)  || (($failtype =~ /ip/) && exists $fip_list{$user}{$ip})) {
-             printf ("[%4d] logins from IP %15s ", $ip_list{$user}{$ip},$ip);
+             printf ("[%4d] Logins do IP %15s ", $ip_list{$user}{$ip},$ip);
         }
         $total = $total+$ip_list{$user}{$ip}; # Count all for this username
 
@@ -228,10 +231,10 @@ for $user (sort keys %ip_list )
             print color($fcolor);
             printf "%-30s", $attacker if ($gethost !~ /none/i);
 
-            printf " Failed [%4d] : ", $fip_list{$user}{$ip}{count};
+            printf " Falhas [%4d] : ", $fip_list{$user}{$ip}{count};
             for $etypes (keys %{$fip_list{$user}{$ip}}) {
                 next if $etypes =~ /count/;
-                printf " using %s  [%4d] ", $etypes, $fip_list{$user}{$ip}{$etypes};
+                printf " Usando %s  [%4d] ", $etypes, $fip_list{$user}{$ip}{$etypes};
              }
              print color('reset');
              printf ("\n");
@@ -246,11 +249,11 @@ for $user (sort keys %ip_list )
 
    # Print out user information & message totals
    if ($totalf>0)  {
-        my $msg = sprintf("%d failed of total %d  login attempts!!!", $totalf, $total);
+        my $msg = sprintf("%d falhas do total de tentativas de login!!!", $totalf, $total);
         $msgcolor = $totalf==$total ? "RED" : "YELLOW";
         printresults("WHITE", "BOLD", $user, $msgcolor, $msg);
    } elsif ($failtype !~ /ip/i) {
-        my $msg = " No failed logins. Yeeee :)";
+        my $msg = " Sem logins com falha. Yeeee :)";
         printresults("WHITE", "BOLD", $user, "GREEN", $msg);
    }
 
