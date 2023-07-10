@@ -17,7 +17,7 @@ fi
 Principal() {
          clear
      echo "+-------------------------------------------------+"
-     echo "|           Utilitario para Zimbra     v1.4       |"
+     echo "|           Utilitario para Zimbra     v1.5       |"
      echo "+-------------------------------------------------+"
      echo "|         Limitar contas por Dominio              |"
      echo "+-------------------------------------------------+"
@@ -77,7 +77,7 @@ fi
 Listar() {
         echo "Dominios configurados no Zimbra..."
         echo
-$UsrZ 'zmprov gad'
+$UsrZ 'zmprov gad |sort'
         echo
     echo "Pressione qualquer tecla para continuar..."
     read msg
