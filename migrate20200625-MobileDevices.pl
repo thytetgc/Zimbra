@@ -7,7 +7,7 @@ use Migrate;
 Migrate::verifySchemaVersion(112);
 
 # Pega a senha diretamente do zmlocalconfig
-my $db_password = `zmlocalconfig -s zimbra_mysql_password`;
+my $db_password = `/opt/zimbra/bin/zmlocalconfig -s -m nokey zimbra_mysql_password`;
 chomp($db_password);  # Remove o caractere de nova linha ao final da senha
 
 my $column_exists = 0;
