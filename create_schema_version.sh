@@ -10,7 +10,7 @@ if [ -z "$MYSQL_PASS" ]; then
 fi
 
 # Conectar ao MySQL e criar a tabela schema_version
-mysql -u zimbra -p"$MYSQL_PASS" -e "
+/opt/zimbra/bin/mysql -u zimbra -p"$MYSQL_PASS" -e "
     CREATE TABLE IF NOT EXISTS zimbra.schema_version (
         name VARCHAR(64) NOT NULL PRIMARY KEY,
         value VARCHAR(64) NOT NULL
