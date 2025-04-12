@@ -16,43 +16,40 @@
 # ***** END LICENSE BLOCK *****
 
 use strict;
+use lib "/opt/zimbra/libexec/scripts";  # Adiciona caminho para o módulo Migrate.pm
 use Migrate;
 
+# Verifica se o schema está na versão esperada
 Migrate::verifySchemaVersion(112);
 
-addColumnIfNotExists("mobile_devices", "mobile_operator", "VARCHAR(512)");
-addColumnIfNotExists("mobile_devices", "last_updated_by", "ENUM('Admin','User') DEFAULT 'User'");
+# Adiciona a coluna mobile_operator
+addMobileOperatorColumn();
 
+# Adiciona a coluna last_updated_by
+addLastUpdatedByColumn();
+
+# Atualiza a versão do schema diretamente para 114
 Migrate::updateSchemaVersion(112, 114);
 
 exit(0);
 
 #####################
+# Subrotina para adicionar a coluna mobile_operator
+sub addMobileOperatorColumn() {
+    my $sql = <<MOBILE_DEVICES_ADD_COLUMN_EOF;
+ALTER TABLE mobile_devices ADD COLUMN mobile_operator VARCHAR(512);
+MOBILE_DEVICES_ADD_COLUMN_EOF
 
-sub addColumnIfNotExists {
-    my ($table, $column, $definition) = @_;
+    Migrate::log("Adding mobile_operator column to ZIMBRA.MOBILE_DEVICES table.");
+    Migrate::runSql($sql);
+}
 
-    Migrate::log("Checking if column '$column' exists in table '$table'...");
+# Subrotina para adicionar a coluna last_updated_by
+sub addLastUpdatedByColumn() {
+    my $sql = <<MOBILE_DEVICES_ADD_COLUMN_EOF;
+ALTER TABLE mobile_devices ADD COLUMN last_updated_by ENUM('Admin','User') DEFAULT 'User';
+MOBILE_DEVICES_ADD_COLUMN_EOF
 
-    my $check_sql = qq{
-        SELECT COUNT(*) FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = 'zimbra'
-        AND TABLE_NAME = '$table'
-        AND COLUMN_NAME = '$column';
-    };
-
-    my $cmd = "/opt/zimbra/bin/mysql -u zimbra -p" .
-              `'/opt/zimbra/bin/zmlocalconfig -s -m nokey zimbra_mysql_password'` .
-              " --database=zimbra --batch --skip-column-names -e \"$check_sql\"";
-
-    my $exists = `$cmd`;
-    chomp($exists);
-
-    if ($exists == 0) {
-        Migrate::log("Adding column '$column' to table '$table'.");
-        my $alter_sql = "ALTER TABLE $table ADD COLUMN $column $definition;";
-        Migrate::runSql($alter_sql);
-    } else {
-        Migrate::log("Column '$column' already exists. Skipping.");
-    }
+    Migrate::log("Adding last_updated_by column to ZIMBRA.MOBILE_DEVICES table.");
+    Migrate::runSql($sql);
 }
