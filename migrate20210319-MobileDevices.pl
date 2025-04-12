@@ -32,12 +32,12 @@ exit(0);
 sub addLastUpdatedByColumn() {
     # Verificar se a coluna 'last_updated_by' já existe na tabela 'mobile_devices'
     my $check_column_sql = "SHOW COLUMNS FROM mobile_devices LIKE 'last_updated_by'";
-    
+
     # Rodar o comando SQL para verificar a coluna
     my $sth = Migrate::runSql($check_column_sql);
     
-    # Se a coluna já existir, sair da função
-    if ($sth && $sth->fetch()) {
+    # Verificar se o resultado contém alguma linha (indicando que a coluna já existe)
+    if ($sth && $sth->[0]) {
         Migrate::log("Coluna 'last_updated_by' já existe. Pulando a criação.");
         return;
     }
