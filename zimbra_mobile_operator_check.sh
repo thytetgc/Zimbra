@@ -1,38 +1,58 @@
 #!/bin/bash
 
-LOG_FILE="/tmp/zimbra_mobile_operator_check.log"
-BACKUP_FILE="/tmp/mobile_devices_backup.sql"
+# Definindo o arquivo de log no diretório do Zimbra
+LOG_FILE="/opt/zimbra/log/zimbra_mobile_operator_check.log"
 
-echo "[$(date)] Iniciando validação da coluna mobile_operator" | tee $LOG_FILE
+# Função para registrar no log
+log_message() {
+    echo "$(date '+%a %b %d %T %Y') - $1" | tee -a "$LOG_FILE"
+}
 
-echo "[$(date)] Parando todos os serviços do Zimbra..." | tee -a $LOG_FILE
+# Verifica se o script tem permissão para escrever no log
+if ! touch "$LOG_FILE" 2>/dev/null; then
+  echo "Erro: não é possível escrever em $LOG_FILE. Execute como root ou altere o caminho do log."
+  exit 1
+fi
+
+# Iniciando o processo
+log_message "Iniciando validação da coluna mobile_operator"
+
+# Parando todos os serviços do Zimbra
+log_message "Parando todos os serviços do Zimbra..."
 su - zimbra -c "zmcontrol stop"
 
-echo "[$(date)] Iniciando apenas o MySQL..." | tee -a $LOG_FILE
+# Iniciando apenas o MySQL
+log_message "Iniciando apenas o MySQL..."
 su - zimbra -c "mysql.server start"
 
-MYSQL_CMD="/opt/zimbra/bin/mysql -u zimbra -p$(/opt/zimbra/bin/zmlocalconfig -s -m nokey zimbra_mysql_password) zimbra"
+# Backup da tabela mobile_devices
+log_message "Fazendo backup da tabela mobile_devices para /opt/zimbra/log/mobile_devices_backup.sql..."
+su - zimbra -c "/opt/zimbra/bin/mysql -u zimbra -p\$(/opt/zimbra/bin/zmlocalconfig -s -m nokey zimbra_mysql_password) zimbra -e 'SELECT * INTO OUTFILE \"/opt/zimbra/log/mobile_devices_backup.sql\" FROM mobile_devices;'"
 
-echo "[$(date)] Fazendo backup da tabela mobile_devices para $BACKUP_FILE..." | tee -a $LOG_FILE
-$MYSQL_CMD -e "SELECT * FROM mobile_devices INTO OUTFILE '$BACKUP_FILE';"
+# FLUSH da tabela mobile_devices
+log_message "FLUSH TABLES mobile_devices..."
+su - zimbra -c "/opt/zimbra/bin/mysql -u zimbra -p\$(/opt/zimbra/bin/zmlocalconfig -s -m nokey zimbra_mysql_password) zimbra -e 'FLUSH TABLES mobile_devices;'"
 
-echo "[$(date)] FLUSH TABLES mobile_devices..." | tee -a $LOG_FILE
-$MYSQL_CMD -e "FLUSH TABLES mobile_devices;"
-$MYSQL_CMD -e "SHOW WARNINGS;" >> $LOG_FILE
+# Verificando e tentando DROPAR a coluna mobile_operator
+log_message "Tentando DROP da coluna mobile_operator..."
+su - zimbra -c "/opt/zimbra/bin/mysql -u zimbra -p\$(/opt/zimbra/bin/zmlocalconfig -s -m nokey zimbra_mysql_password) zimbra -e 'ALTER TABLE mobile_devices DROP COLUMN IF EXISTS mobile_operator;'"
+log_message "Verificando se houve warnings..."
+su - zimbra -c "/opt/zimbra/bin/mysql -u zimbra -p\$(/opt/zimbra/bin/zmlocalconfig -s -m nokey zimbra_mysql_password) zimbra -e 'SHOW WARNINGS;'"
 
-echo "[$(date)] Tentando DROP da coluna mobile_operator..." | tee -a $LOG_FILE
-$MYSQL_CMD -e "ALTER TABLE mobile_devices DROP COLUMN IF EXISTS mobile_operator;"
-$MYSQL_CMD -e "SHOW WARNINGS;" >> $LOG_FILE
+# Tentando ADICIONAR a coluna mobile_operator
+log_message "Tentando ADD da coluna mobile_operator..."
+su - zimbra -c "/opt/zimbra/bin/mysql -u zimbra -p\$(/opt/zimbra/bin/zmlocalconfig -s -m nokey zimbra_mysql_password) zimbra -e 'ALTER TABLE mobile_devices ADD COLUMN mobile_operator VARCHAR(512);'"
+log_message "Verificando se houve warnings..."
+su - zimbra -c "/opt/zimbra/bin/mysql -u zimbra -p\$(/opt/zimbra/bin/zmlocalconfig -s -m nokey zimbra_mysql_password) zimbra -e 'SHOW WARNINGS;'"
 
-echo "[$(date)] Tentando ADD da coluna mobile_operator..." | tee -a $LOG_FILE
-$MYSQL_CMD -e "ALTER TABLE mobile_devices ADD COLUMN mobile_operator VARCHAR(512);"
-$MYSQL_CMD -e "SHOW WARNINGS;" >> $LOG_FILE
+# Validando se a coluna pode ser DROPADA novamente
+log_message "Validando se a coluna pode ser DROPADA novamente..."
+su - zimbra -c "/opt/zimbra/bin/mysql -u zimbra -p\$(/opt/zimbra/bin/zmlocalconfig -s -m nokey zimbra_mysql_password) zimbra -e 'ALTER TABLE mobile_devices DROP COLUMN IF EXISTS mobile_operator;'"
+log_message "Verificando se houve warnings..."
+su - zimbra -c "/opt/zimbra/bin/mysql -u zimbra -p\$(/opt/zimbra/bin/zmlocalconfig -s -m nokey zimbra_mysql_password) zimbra -e 'SHOW WARNINGS;'"
 
-echo "[$(date)] Validando se pode dropar novamente..." | tee -a $LOG_FILE
-$MYSQL_CMD -e "ALTER TABLE mobile_devices DROP COLUMN IF EXISTS mobile_operator;"
-$MYSQL_CMD -e "SHOW WARNINGS;" >> $LOG_FILE
+# Reiniciando os serviços do Zimbra
+log_message "Reiniciando os serviços do Zimbra..."
+su - zimbra -c "zmcontrol start"
 
-echo "[$(date)] Reiniciando serviços do Zimbra..." | tee -a $LOG_FILE
-su - zimbra -c "zmcontrol restart"
-
-echo "[$(date)] Script finalizado. Logs em: $LOG_FILE"
+log_message "Validação concluída com sucesso."
