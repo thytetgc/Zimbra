@@ -7,6 +7,9 @@ use Migrate;
 my $fromVersion = 112;
 my $toVersion   = 114;
 
+# Inicializa as versões se necessário
+initSchemaVersion();
+
 Migrate::verifySchemaVersion($fromVersion);
 
 eval {
@@ -28,7 +31,7 @@ eval {
         Migrate::log("Column 'last_updated_by' already exists. Skipping.");
     }
 
-    # Verifica a versão final do schema e decide se precisa atualizar
+    # Verifica a versão final do schema
     my $finalVersion = Migrate::getSchemaVersion();
 
     if ($finalVersion == $toVersion) {
@@ -50,7 +53,7 @@ if ($@) {
 exit(0);
 
 # -----------------------------------------------------------------
-# Função para verificar se a coluna existe na tabela
+# Verifica se a coluna existe
 sub columnExists {
     my ($table, $column) = @_;
 
@@ -67,4 +70,32 @@ sub columnExists {
     chomp($result);
 
     return $result > 0;
+}
+
+# -----------------------------------------------------------------
+# Cria ou reseta a tabela schema_version e define o valor inicial
+sub initSchemaVersion {
+    my $mysql_pass = qx(/opt/zimbra/bin/zmlocalconfig -s -m nokey zimbra_mysql_password);
+    chomp($mysql_pass);
+
+    my $sql = qq{
+        DROP TABLE IF EXISTS schema_version;
+        CREATE TABLE schema_version (
+            version INT NOT NULL
+        );
+        INSERT INTO schema_version (version) VALUES ($fromVersion);
+    };
+
+    my $cmd = qq(/opt/zimbra/bin/mysql -u zimbra -p$mysql_pass zimbra -e "$sql");
+    system($cmd);
+
+    # Sincroniza a tabela config
+    my $cmd2 = qq(/opt/zimbra/bin/mysql -u zimbra -p$mysql_pass -e "UPDATE zimbra.config SET value = $fromVersion WHERE name = 'db.version';");
+    system($cmd2);
+
+    # Garante também que o valor foi inserido corretamente
+    my $cmd3 = qq(/opt/zimbra/bin/mysql -u zimbra -p$mysql_pass -e "UPDATE schema_version SET version = $fromVersion;" zimbra);
+    system($cmd3);
+
+    Migrate::log("Initialized schema_version and config to version $fromVersion");
 }
