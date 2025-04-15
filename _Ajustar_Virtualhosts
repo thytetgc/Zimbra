@@ -1,12 +1,13 @@
 #!/bin/bash
 
 LOG="/tmp/zimbra_virtualhost_update.log"
+
 su - zimbra -c '
 echo "==== Início: $(date)" > '"$LOG"'
 HOST=$(hostname -f)
 DOMINIO_HOST=""
 
-# Identifica o domínio ao qual o FQDN pertence
+# Identifica o domínio principal com base no nome do host (hostname -f)
 for d in $(zmprov gad); do
   if [[ "$HOST" == *"$d" ]]; then
     DOMINIO_HOST="$d"
@@ -14,24 +15,34 @@ for d in $(zmprov gad); do
   fi
 done
 
+# Verifique se o domínio principal foi identificado corretamente
+if [ -z "$DOMINIO_HOST" ]; then
+  echo "Erro: Não foi possível identificar o domínio correto para o host $HOST" | tee -a '"$LOG"'
+  exit 1
+fi
+
+echo "Domínio principal identificado: $DOMINIO_HOST" | tee -a '"$LOG"'
+
+# Remove o FQDN de todos os domínios, exceto o principal
 for dominio in $(zmprov gad); do
-  echo ">> Configurando domínio: $dominio" | tee -a '"$LOG"'
+  echo ">> Verificando domínio: $dominio" | tee -a '"$LOG"'
 
-  # Limpa todos os zimbraVirtualHostname
-  zmprov md "$dominio" -zimbraVirtualHostname "" >> '"$LOG"'
+  # Limpa o FQDN (se já existir) de qualquer domínio
+  zmprov md "$dominio" -zimbraVirtualHostname "$HOST" >> '"$LOG"'
 
-  # Adiciona os virtuais padronizados
-  for sub in mail pop imap smtp webmail; do
-    zmprov md "$dominio" +zimbraVirtualHostname "$sub.$dominio" >> '"$LOG"'
-  done
-
-  # Adiciona o FQDN apenas ao domínio correto
+  # Adiciona o FQDN ao domínio correto
   if [[ "$dominio" == "$DOMINIO_HOST" ]]; then
     zmprov md "$dominio" +zimbraVirtualHostname "$HOST" >> '"$LOG"'
     echo "   Adicionado FQDN $HOST no domínio $dominio" | tee -a '"$LOG"'
   fi
 
-  # Define protocolo, porta e host público (public service)
+  # Adiciona os subdomínios dinamicamente (baseado no nome do host)
+  for sub in mail pop imap smtp webmail; do
+    zmprov md "$dominio" +zimbraVirtualHostname "$sub.$dominio" >> '"$LOG"'
+    echo "   Adicionado subdomínio: $sub.$dominio" | tee -a '"$LOG"'
+  done
+
+  # Configura protocolo, porta e hostname público
   zmprov md "$dominio" zimbraPublicServiceProtocol https >> '"$LOG"'
   zmprov md "$dominio" zimbraPublicServicePort 443 >> '"$LOG"'
   zmprov md "$dominio" zimbraPublicServiceHostname "mail.$dominio" >> '"$LOG"'
@@ -45,5 +56,5 @@ echo "Reiniciando proxy..." | tee -a '"$LOG"'
 zmproxyctl restart >> '"$LOG"' 2>&1
 
 echo "==== Fim: $(date)" >> '"$LOG"'
-echo "Finalizado. Veja o log em: '"$LOG"'"
+echo "Finalizado. Veja o log em: '"$LOG"'
 '
