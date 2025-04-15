@@ -1,6 +1,7 @@
 #!/bin/bash
 
-LOGFILE="/opt/zimbra/zimbra-integrity-full.log"
+# Alterado para salvar o log no diretório de logs do Zimbra
+LOGFILE="/opt/zimbra/log/zimbra-integrity-full.log"
 MYSQL="/opt/zimbra/bin/mysql"
 MYSQL_PWD=$(/opt/zimbra/bin/zmlocalconfig -s -m nokey zimbra_mysql_password)
 DBNAME="zimbra"
