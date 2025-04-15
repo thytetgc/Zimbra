@@ -65,7 +65,7 @@ echo -e "\n==============================" | tee -a "$LOGFILE"
 echo ">> 3. VERIFICAÇÃO E REINDEXAÇÃO AUTOMÁTICA" | tee -a "$LOGFILE"
 echo "==============================" | tee -a "$LOGFILE"
 
-MAILBOXES=$($ZMPROV -l gaa)
+MAILBOXES=$($ZMPROV -l gaa |sort)
 
 for MBOX in $MAILBOXES; do
     echo "-> Verificando index para: $MBOX" | tee -a "$LOGFILE"
