@@ -4,7 +4,15 @@ LOG="/tmp/zimbra_virtualhost_update.log"
 su - zimbra -c '
 echo "==== Início: $(date)" > '"$LOG"'
 HOST=$(hostname -f)
-DOMINIO_HOST=$(echo "$HOST" | cut -d"." -f2-)
+DOMINIO_HOST=""
+
+# Identifica o domínio ao qual o FQDN pertence
+for d in $(zmprov gad); do
+  if [[ "$HOST" == *"$d" ]]; then
+    DOMINIO_HOST="$d"
+    break
+  fi
+done
 
 for dominio in $(zmprov gad); do
   echo ">> Configurando domínio: $dominio" | tee -a '"$LOG"'
@@ -17,8 +25,8 @@ for dominio in $(zmprov gad); do
     zmprov md "$dominio" +zimbraVirtualHostname "$sub.$dominio" >> '"$LOG"'
   done
 
-  # Adiciona o FQDN do servidor apenas ao domínio correspondente
-  if [ "$dominio" = "$DOMINIO_HOST" ]; then
+  # Adiciona o FQDN apenas ao domínio correto
+  if [[ "$dominio" == "$DOMINIO_HOST" ]]; then
     zmprov md "$dominio" +zimbraVirtualHostname "$HOST" >> '"$LOG"'
     echo "   Adicionado FQDN $HOST no domínio $dominio" | tee -a '"$LOG"'
   fi
