@@ -1,8 +1,7 @@
 #!/bin/bash
 
-# Alterado para salvar o log no diretório de logs do Zimbra
+# Logfile em /opt/zimbra/log
 LOGFILE="/opt/zimbra/log/zimbra-integrity-full.log"
-MYSQL="/opt/zimbra/bin/mysql"
 MYSQL_PWD=$(/opt/zimbra/bin/zmlocalconfig -s -m nokey zimbra_mysql_password)
 DBNAME="zimbra"
 ZMMAILBOX="/opt/zimbra/bin/zmmailbox"
@@ -16,27 +15,37 @@ echo -e "\n>> Parando serviços Zimbra exceto MySQL..." | tee -a "$LOGFILE"
 zmcontrol stop >> "$LOGFILE" 2>&1
 sleep 5
 
-echo -e "\n>> Iniciando MySQL standalone..." | tee -a "$LOGFILE"
-/opt/zimbra/libexec/zmmysqld >/dev/null 2>&1 &
+echo -e "\n>> Iniciando MySQL..." | tee -a "$LOGFILE"
+# Iniciar MySQL corretamente com mysql.server
+su - zimbra -c "mysql.server start" >> "$LOGFILE" 2>&1
 sleep 10
+
+# Verificação do MySQL para ver se foi iniciado
+MYSQL_STATUS=$(ps aux | grep mysqld | grep -v grep)
+if [ -z "$MYSQL_STATUS" ]; then
+    echo "ERROR: MySQL não iniciou corretamente." | tee -a "$LOGFILE"
+    exit 1
+else
+    echo "MySQL iniciado com sucesso!" | tee -a "$LOGFILE"
+fi
 
 ### DATABASE CHECK
 echo -e "\n==============================" | tee -a "$LOGFILE"
 echo ">> 1. VERIFICAÇÃO E REPARO DO BANCO DE DADOS" | tee -a "$LOGFILE"
 echo "==============================" | tee -a "$LOGFILE"
 
-TABLES=$($MYSQL -u root --password="$MYSQL_PWD" -e "SHOW TABLES IN $DBNAME;" | tail -n +2)
+TABLES=$(/opt/zimbra/bin/mysql -u root --password="$MYSQL_PWD" -e "SHOW TABLES IN $DBNAME;" | tail -n +2)
 
 for TABLE in $TABLES; do
     echo "=== TABELA: $TABLE ===" | tee -a "$LOGFILE"
-    $MYSQL -u root --password="$MYSQL_PWD" -e "CHECK TABLE $DBNAME.$TABLE;" >> "$LOGFILE" 2>&1
-    $MYSQL -u root --password="$MYSQL_PWD" -e "REPAIR TABLE $DBNAME.$TABLE;" >> "$LOGFILE" 2>&1
-    $MYSQL -u root --password="$MYSQL_PWD" -e "ANALYZE TABLE $DBNAME.$TABLE;" >> "$LOGFILE" 2>&1
-    $MYSQL -u root --password="$MYSQL_PWD" -e "OPTIMIZE TABLE $DBNAME.$TABLE;" >> "$LOGFILE" 2>&1
+    /opt/zimbra/bin/mysql -u root --password="$MYSQL_PWD" -e "CHECK TABLE $DBNAME.$TABLE;" >> "$LOGFILE" 2>&1
+    /opt/zimbra/bin/mysql -u root --password="$MYSQL_PWD" -e "REPAIR TABLE $DBNAME.$TABLE;" >> "$LOGFILE" 2>&1
+    /opt/zimbra/bin/mysql -u root --password="$MYSQL_PWD" -e "ANALYZE TABLE $DBNAME.$TABLE;" >> "$LOGFILE" 2>&1
+    /opt/zimbra/bin/mysql -u root --password="$MYSQL_PWD" -e "OPTIMIZE TABLE $DBNAME.$TABLE;" >> "$LOGFILE" 2>&1
     echo "--------------------------" | tee -a "$LOGFILE"
 done
 
-echo -e "\n>> Encerrando MySQL standalone..." | tee -a "$LOGFILE"
+echo -e "\n>> Encerrando MySQL..." | tee -a "$LOGFILE"
 killall mysqld >> "$LOGFILE" 2>&1
 sleep 5
 
