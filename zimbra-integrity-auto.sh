@@ -17,7 +17,7 @@ sleep 5
 
 echo -e "\n>> Iniciando MySQL..." | tee -a "$LOGFILE"
 # Iniciar MySQL corretamente com mysql.server
-su - zimbra -c "mysql.server start" >> "$LOGFILE" 2>&1
+mysql.server start >> "$LOGFILE" 2>&1
 sleep 10
 
 # Verificação do MySQL para ver se foi iniciado
