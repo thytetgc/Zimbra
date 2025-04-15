@@ -1,0 +1,31 @@
+#!/bin/bash
+
+LOG="/tmp/zimbra_virtualhost_update.log"
+su - zimbra -c '
+echo "==== Início: $(date)" > '"$LOG"'
+HOST=$(hostname -f)
+DOMINIO_HOST=$(echo "$HOST" | cut -d"." -f2-)
+
+for dominio in $(zmprov gad); do
+  echo ">> Configurando domínio: $dominio" | tee -a '"$LOG"'
+
+  # Limpa todos os zimbraVirtualHostname
+  zmprov md "$dominio" -zimbraVirtualHostname "" >> '"$LOG"'
+
+  # Adiciona os virtuais padronizados
+  for sub in mail pop imap smtp webmail; do
+    zmprov md "$dominio" +zimbraVirtualHostname "$sub.$dominio" >> '"$LOG"'
+  done
+
+  # Adiciona o FQDN do servidor apenas ao domínio correspondente
+  if [ "$dominio" = "$DOMINIO_HOST" ]; then
+    zmprov md "$dominio" +zimbraVirtualHostname "$HOST" >> '"$LOG"'
+    echo "   Adicionado FQDN $HOST no domínio $dominio" | tee -a '"$LOG"'
+  fi
+done
+
+echo "==== Fim: $(date)" >> '"$LOG"'
+echo "Reiniciando proxy..."
+zmproxyctl restart >> '"$LOG"' 2>&1
+echo "Finalizado. Veja o log em: '"$LOG"'"
+'
