@@ -22,10 +22,20 @@ for dominio in $(zmprov gad); do
     zmprov md "$dominio" +zimbraVirtualHostname "$HOST" >> '"$LOG"'
     echo "   Adicionado FQDN $HOST no domínio $dominio" | tee -a '"$LOG"'
   fi
+
+  # Define protocolo, porta e host público (public service)
+  zmprov md "$dominio" zimbraPublicServiceProtocol https >> '"$LOG"'
+  zmprov md "$dominio" zimbraPublicServicePort 443 >> '"$LOG"'
+  zmprov md "$dominio" zimbraPublicServiceHostname "mail.$dominio" >> '"$LOG"'
 done
 
-echo "==== Fim: $(date)" >> '"$LOG"'
-echo "Reiniciando proxy..."
+# Flush de cache
+zmprov fc all >> '"$LOG"'
+
+# Reinício do proxy
+echo "Reiniciando proxy..." | tee -a '"$LOG"'
 zmproxyctl restart >> '"$LOG"' 2>&1
+
+echo "==== Fim: $(date)" >> '"$LOG"'
 echo "Finalizado. Veja o log em: '"$LOG"'"
 '
