@@ -34,7 +34,7 @@ echo -e "\n==============================" | tee -a "$LOGFILE"
 echo ">> 1. VERIFICAÇÃO E REPARO DO BANCO DE DADOS" | tee -a "$LOGFILE"
 echo "==============================" | tee -a "$LOGFILE"
 
-TABLES=$(/opt/zimbra/bin/mysql -u root --password="$MYSQL_PWD" -e "SHOW TABLES IN $DBNAME;" | tail -n +2)
+TABLES=$(/opt/zimbra/bin/mysql -u zimbra --password="$MYSQL_PWD" -e "SHOW TABLES IN $DBNAME;" | tail -n +2)
 
 for TABLE in $TABLES; do
     echo "=== TABELA: $TABLE ===" | tee -a "$LOGFILE"
