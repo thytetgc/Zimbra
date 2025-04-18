@@ -1,0 +1,127 @@
+#!/bin/bash
+
+# Configurações globais
+BACKUP_DIR="/opt/zimbra/tmp/backup_briefcase"
+LOG_DIR="/var/log/zextras_briefcase"
+mkdir -p "$LOG_DIR"
+
+# Função para log (timestamp só no arquivo)
+log() {
+    echo "$1" | tee -a "$CURRENT_LOG"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$CURRENT_LOG"
+}
+
+# Menu principal
+show_menu() {
+    clear
+    echo "===================================="
+    echo "  GERENCIADOR ZIMBRA BRIEFCASE SUITE"
+    echo "===================================="
+    echo
+    echo "1. Realizar Backup"
+    echo "2. Restaurar Backup"
+    echo "3. Sair"
+    echo
+    read -p "Selecione uma opção [1-3]: " OPTION
+}
+
+# Função de backup
+backup() {
+    CURRENT_LOG="$LOG_DIR/backup_$(date +%Y%m%d_%H%M%S).log"
+    echo "Iniciando backup dos Briefcases..."
+    
+    mkdir -p "$BACKUP_DIR"
+    chown zimbra:zimbra "$BACKUP_DIR"
+    
+    ACCOUNTS=$(su - zimbra -c 'zmprov -l gaa' | sort)
+    log "Contas a processar: $(echo "$ACCOUNTS" | wc -w)"
+    
+    for ACCOUNT in $ACCOUNTS; do
+        TGZ_FILE="$BACKUP_DIR/${ACCOUNT}.tgz"
+        echo "Processando: $ACCOUNT"
+        
+        su - zimbra -c "zmmailbox -z -m '$ACCOUNT' gru '/Briefcase/?fmt=tgz'" > "$TGZ_FILE" 2>> "$CURRENT_LOG"
+        
+        if [ -s "$TGZ_FILE" ]; then
+            log "Backup OK: $ACCOUNT ($(du -sh "$TGZ_FILE" | awk '{print $1}'))"
+        else
+            echo ">> Briefcase vazio: $ACCOUNT"
+            rm -f "$TGZ_FILE"
+        fi
+    done
+    
+    BACKUP_ZIP="${BACKUP_DIR}_$(date +'%Y%m%d%H%M%S').tgz"
+    echo "Compactando backups..."
+    tar -cvf "$BACKUP_ZIP" "$BACKUP_DIR" 2>> "$CURRENT_LOG"
+    
+    echo
+    echo "Backup finalizado!"
+    echo "Arquivo principal: $BACKUP_ZIP"
+    log "Tamanho total: $(du -sh "$BACKUP_ZIP" | awk '{print $1}')"
+}
+
+# Função de restore
+restore() {
+    CURRENT_LOG="$LOG_DIR/restore_$(date +%Y%m%d_%H%M%S).log"
+    TEMP_DIR="/tmp/briefcase_temp_$(date +%s)"
+    
+    echo "Iniciando restauração..."
+    
+    if [ ! -d "$BACKUP_DIR" ]; then
+        echo "ERRO: Diretório de backup não encontrado!" | tee -a "$CURRENT_LOG"
+        exit 1
+    fi
+    
+    mkdir -p "$TEMP_DIR"
+    chown zimbra:zimbra "$TEMP_DIR"
+    
+    for TGZ_FILE in "$BACKUP_DIR"/*.tgz; do
+        ACCOUNT=$(basename "$TGZ_FILE" .tgz)
+        echo "Restaurando: $ACCOUNT"
+        
+        # Extração
+        su - zimbra -c "tar -xzf '$TGZ_FILE' -C '$TEMP_DIR' --transform 's/.*\///' Briefcase/" 2>> "$CURRENT_LOG"
+        
+        # Remoção seletiva
+        CURRENT_ITEMS=$(su - zimbra -c "zmmailbox -z -m '$ACCOUNT' s -t document 'in:/Briefcase'")
+        find "$TEMP_DIR" -type f \( ! -name "*.meta" \) | while read -r BACKUP_FILE; do
+            FILE_NAME=$(basename "$BACKUP_FILE")
+            ITEM_LINE=$(echo "$CURRENT_ITEMS" | grep -F "$FILE_NAME")
+            if [ -n "$ITEM_LINE" ]; then
+                ITEM_ID=$(echo "$ITEM_LINE" | awk '{print $2}' | tr -d '.')
+                echo ">> Removendo: $FILE_NAME"
+                su - zimbra -c "zmmailbox -z -m '$ACCOUNT' deleteItem $ITEM_ID" 2>> "$CURRENT_LOG"
+            fi
+        done
+        
+        # Restauração
+        echo ">> Aplicando backup..."
+        su - zimbra -c "zmmailbox -z -m '$ACCOUNT' postRestURL '/?fmt=tgz' '$TGZ_FILE'" 2>> "$CURRENT_LOG"
+        
+        rm -rf "$TEMP_DIR"/*
+        log "Restauração OK: $ACCOUNT"
+    done
+    
+    rm -rf "$TEMP_DIR"
+    echo
+    echo "Restauração concluída!"
+}
+
+# Execução
+while true; do
+    show_menu
+    case $OPTION in
+        1)  backup
+            read -p "Pressione Enter para continuar..."
+            ;;
+        2)  restore
+            read -p "Pressione Enter para continuar..."
+            ;;
+        3)  echo "Saindo..."
+            exit 0
+            ;;
+        *)  echo "Opção inválida!"
+            sleep 1
+            ;;
+    esac
+done
