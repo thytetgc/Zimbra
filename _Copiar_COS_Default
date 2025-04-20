@@ -1,0 +1,68 @@
+#!/bin/bash
+
+EXPORT_COS="default"
+EXPORT_DIR="/opt/zimbra/tmp/backup_cos"
+EXPORT_FILE="${EXPORT_DIR}/${EXPORT_COS}_cos.zmprov"
+LOG_DIR="${EXPORT_DIR}/logs"
+TMP_CMD="/tmp/cos_import_cmd.zmprov"
+
+# Cores
+GREEN='\033[0;32m'
+BLUE='\033[1;34m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+mkdir -p "$EXPORT_DIR" "$LOG_DIR"
+
+echo -e "${BLUE}📤 Exportando atributos do COS '${EXPORT_COS}'...${NC}"
+
+# Exportar COS, removendo atributos não aplicáveis
+su - zimbra -c "zmprov getCos $EXPORT_COS" \
+  | grep -vE '^(#|cn:|description:)' \
+  | sort > "$EXPORT_FILE"
+
+if [[ ! -s "$EXPORT_FILE" ]]; then
+  echo -e "${RED}❌ Falha ao exportar atributos do COS '${EXPORT_COS}'.${NC}"
+  exit 1
+fi
+
+echo -e "${GREEN}✅ Exportação salva em: $EXPORT_FILE${NC}"
+
+# Obter lista de COS existentes, exceto o 'default'
+COS_LIST=$(su - zimbra -c "zmprov getAllCos" | grep -v "^$EXPORT_COS\$" | sort)
+
+for COS in $COS_LIST; do
+  echo -e "${YELLOW}🔄 Importando atributos para COS: ${COS}${NC}"
+
+  MODIFY_CMD="modifyCos $COS"
+  SKIPPED=0
+  TOTAL=0
+
+  while IFS= read -r line; do
+    [[ -z "$line" || "$line" =~ ^# ]] && continue
+    attr=$(echo "$line" | cut -d: -f1)
+    val=$(echo "$line" | cut -d: -f2- | sed 's/^ //')
+
+    case "$attr" in
+      objectClass|zimbraId|zimbraCreateTimestamp|zimbraACE|zimbraPasswordModifiedTime|zimbraPrefDefaultCalendarId)
+        ((SKIPPED++))
+        continue
+        ;;
+    esac
+
+    ((TOTAL++))
+    MODIFY_CMD+=" \"$attr\" \"$val\""
+  done < "$EXPORT_FILE"
+
+  # Aplicar
+  echo "$MODIFY_CMD" > "$TMP_CMD"
+  su - zimbra -c "zmprov -f $TMP_CMD" > "${LOG_DIR}/${COS}.log" 2>&1
+
+  echo -e "${GREEN}✅ COS '${COS}' atualizado com ${TOTAL} atributos (ignorados ${SKIPPED}). Log: ${LOG_DIR}/${COS}.log${NC}"
+done
+
+# Limpeza
+rm -f "$TMP_CMD"
+
+echo -e "${BLUE}🏁 Script finalizado para todos os COS!${NC}"
