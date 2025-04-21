@@ -3,7 +3,7 @@
 # Script completo para configuração Zimbra (COS + Domínios + Usuários)
 
 ## Configurações
-DEFAULT_EMAIL="admin@hostlp.cloud"
+DEFAULT_EMAIL="admin@localhost.com.br"
 LOG_FILE="/var/log/zimbra_full_config_$(date +%Y%m%d-%H%M%S).log"
 BATCH_SIZE=500
 PARALLEL_PROCESSES=10
