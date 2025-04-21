@@ -1,17 +1,28 @@
 #!/bin/bash
 
-# Script completo para configuração Zimbra (COS + Domínios + Usuários)
+# Script para configuração Zimbra com:
+# - Ordem alfabética de processamento
+# - Baixo consumo de CPU
+# - Controle de paralelismo
 
 ## Configurações
 DEFAULT_EMAIL="admin@localhost.com.br"
-LOG_FILE="/var/log/zimbra_full_config_$(date +%Y%m%d-%H%M%S).log"
-BATCH_SIZE=500
-PARALLEL_PROCESSES=10
+LOG_FILE="/var/log/zimbra_alpha_config_$(date +%Y%m%d-%H%M%S).log"
+BATCH_SIZE=200
+PARALLEL_DOMAINS=3
+CPU_LIMIT=50
+NICENESS=10
 
 ## Verificações iniciais
 if [ "$(id -u)" -ne 0 ] && [ "$(whoami)" != "zimbra" ]; then
    echo "ERRO: Execute como root ou usuário zimbra" >&2
    exit 1
+fi
+
+## Configuração de prioridade
+renice $NICENESS $$ >/dev/null
+if command -v cpulimit &>/dev/null; then
+   cpulimit -l $CPU_LIMIT -p $$ -b >/dev/null 2>&1
 fi
 
 ## Solicitar e-mail de recuperação
@@ -23,22 +34,22 @@ if [[ ! "$RECOVERY_EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]
    exit 1
 fi
 
-ZMPROV_CMD=$(command -v zmprov 2>/dev/null || echo "/opt/zimbra/bin/zmprov")
+ZMPROV_CMD="/opt/zimbra/bin/zmprov"
 
-## Função para configurar COS
+## Função para configurar COS em ordem alfabética
 configure_cos() {
-    echo "[$(date +%H:%M:%S)] Configurando todos os COS" | tee -a "$LOG_FILE"
+    echo "[$(date +%H:%M:%S)] Configurando COS (ordem alfabética)" | tee -a "$LOG_FILE"
     
-    $ZMPROV_CMD gac | while read cos; do
-        echo "Habilitando reset de senha para COS: $cos" | tee -a "$LOG_FILE"
+    $ZMPROV_CMD gac | sort | while read cos; do
+        echo "Configurando COS: $cos" | tee -a "$LOG_FILE"
         $ZMPROV_CMD mc "$cos" zimbraFeatureResetPasswordStatus enabled
+        sleep 0.1
     done
     
     echo "[$(date +%H:%M:%S)] Configuração de COS concluída" | tee -a "$LOG_FILE"
-    echo "----------------------------------------" | tee -a "$LOG_FILE"
 }
 
-## Função para processar usuários (igual à anterior)
+## Função para processar usuários em ordem alfabética
 process_users() {
     local dominio=$1
     local count=0
@@ -46,7 +57,8 @@ process_users() {
     
     echo "[$(date +%H:%M:%S)] Processando domínio: $dominio" | tee -a "$LOG_FILE"
     
-    while read usuario; do
+    # Obter usuários em ordem alfabética
+    $ZMPROV_CMD -l gaa "$dominio" | sort | while read usuario; do
         batch_cmds+="ma $usuario zimbraFeatureResetPasswordStatus enabled "
         batch_cmds+="zimbraPrefPasswordRecoveryAddress $RECOVERY_EMAIL "
         batch_cmds+="zimbraPrefPasswordRecoveryAddressStatus verified\n"
@@ -54,44 +66,69 @@ process_users() {
         ((count++))
         
         if [ $((count % BATCH_SIZE)) -eq 0 ]; then
-            echo -e "$batch_cmds" | $ZMPROV_CMD &>/dev/null &
+            echo -e "$batch_cmds" | $ZMPROV_CMD >/dev/null 2>&1
             batch_cmds=""
+            sleep 0.05
         fi
-    done < <($ZMPROV_CMD -l gaa "$dominio")
+    done
     
+    # Processar remanescentes
     if [ -n "$batch_cmds" ]; then
-        echo -e "$batch_cmds" | $ZMPROV_CMD &>/dev/null &
+        echo -e "$batch_cmds" | $ZMPROV_CMD >/dev/null 2>&1
     fi
     
-    wait
-    echo "[$(date +%H:%M:%S)] $count usuários processados em $dominio" | tee -a "$LOG_FILE"
+    echo "[$(date +%H:%M:%S)] $dominio concluído: $count usuários" | tee -a "$LOG_FILE"
 }
 
 ## Execução principal
 {
-echo "==== INÍCIO DA EXECUÇÃO ===="
+echo "==== INÍCIO DA EXECUÇÃO (ORDEM ALFABÉTICA) ===="
 date
 echo "E-mail de recuperação: $RECOVERY_EMAIL"
+echo "Configuração:"
+echo " - Ordem alfabética para COS, domínios e usuários"
+echo " - Paralelismo: $PARALLEL_DOMAINS domínios"
+echo " - Tamanho de lote: $BATCH_SIZE usuários"
+echo "----------------------------------------"
 
-# 1. Primeiro configura todos os COS
+# 1. Configurar COS em ordem alfabética
 configure_cos
 
-# 2. Depois configura domínios e usuários
+# 2. Obter e ordenar domínios alfabeticamente
+echo "[$(date +%H:%M:%S)] Obtendo lista de domínios..." | tee -a "$LOG_FILE"
+DOMINIOS=$($ZMPROV_CMD gad | sort)
+TOTAL_DOMINIOS=$(wc -l <<< "$DOMINIOS")
+COUNT=0
+
 echo "----------------------------------------"
-echo "[$(date +%H:%M:%S)] Iniciando configuração de domínios" | tee -a "$LOG_FILE"
+echo "[$(date +%H:%M:%S)] Iniciando processamento de $TOTAL_DOMINIOS domínios" | tee -a "$LOG_FILE"
 
-# Habilitar para todos os domínios em paralelo
-$ZMPROV_CMD gad | xargs -P $PARALLEL_PROCESSES -I {} $ZMPROV_CMD md {} zimbraFeatureResetPasswordStatus enabled
-
-# Processar usuários de todos os domínios
-for dominio in $($ZMPROV_CMD gad); do
+# 3. Processar domínios em ordem alfabética
+for dominio in $DOMINIOS; do
+    ((COUNT++))
+    echo "[$(date +%H:%M:%S)] Domínio $COUNT/$TOTAL_DOMINIOS: $dominio" | tee -a "$LOG_FILE"
+    
+    # Configurar domínio
+    $ZMPROV_CMD md "$dominio" zimbraFeatureResetPasswordStatus enabled
+    
+    # Processar usuários com controle de paralelismo
     process_users "$dominio" &
+    
+    # Controlar paralelismo
+    RUNNING=$(jobs -rp | wc -l)
+    while [ $RUNNING -ge $PARALLEL_DOMAINS ]; do
+        sleep 2
+        RUNNING=$(jobs -rp | wc -l)
+    done
 done
 
 wait
 
 echo "==== EXECUÇÃO CONCLUÍDA ===="
 date
+echo "Resumo:"
+echo " - Domínios processados: $TOTAL_DOMINIOS"
+echo " - Tempo total: $SECONDS segundos"
 } | tee -a "$LOG_FILE"
 
 echo "Log completo disponível em: $LOG_FILE"
