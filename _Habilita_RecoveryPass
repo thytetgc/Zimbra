@@ -1,0 +1,97 @@
+#!/bin/bash
+
+# Script completo para configuração Zimbra (COS + Domínios + Usuários)
+
+## Configurações
+DEFAULT_EMAIL="admin@hostlp.cloud"
+LOG_FILE="/var/log/zimbra_full_config_$(date +%Y%m%d-%H%M%S).log"
+BATCH_SIZE=500
+PARALLEL_PROCESSES=10
+
+## Verificações iniciais
+if [ "$(id -u)" -ne 0 ] && [ "$(whoami)" != "zimbra" ]; then
+   echo "ERRO: Execute como root ou usuário zimbra" >&2
+   exit 1
+fi
+
+## Solicitar e-mail de recuperação
+read -p "Digite o e-mail de recuperação padrão [${DEFAULT_EMAIL}]: " RECOVERY_EMAIL
+RECOVERY_EMAIL=${RECOVERY_EMAIL:-$DEFAULT_EMAIL}
+
+if [[ ! "$RECOVERY_EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
+   echo "ERRO: Formato de e-mail inválido!" >&2
+   exit 1
+fi
+
+ZMPROV_CMD=$(command -v zmprov 2>/dev/null || echo "/opt/zimbra/bin/zmprov")
+
+## Função para configurar COS
+configure_cos() {
+    echo "[$(date +%H:%M:%S)] Configurando todos os COS" | tee -a "$LOG_FILE"
+    
+    $ZMPROV_CMD gac | while read cos; do
+        echo "Habilitando reset de senha para COS: $cos" | tee -a "$LOG_FILE"
+        $ZMPROV_CMD mc "$cos" zimbraFeatureResetPasswordStatus enabled
+    done
+    
+    echo "[$(date +%H:%M:%S)] Configuração de COS concluída" | tee -a "$LOG_FILE"
+    echo "----------------------------------------" | tee -a "$LOG_FILE"
+}
+
+## Função para processar usuários (igual à anterior)
+process_users() {
+    local dominio=$1
+    local count=0
+    local batch_cmds=""
+    
+    echo "[$(date +%H:%M:%S)] Processando domínio: $dominio" | tee -a "$LOG_FILE"
+    
+    while read usuario; do
+        batch_cmds+="ma $usuario zimbraFeatureResetPasswordStatus enabled "
+        batch_cmds+="zimbraPrefPasswordRecoveryAddress $RECOVERY_EMAIL "
+        batch_cmds+="zimbraPrefPasswordRecoveryAddressStatus verified\n"
+        
+        ((count++))
+        
+        if [ $((count % BATCH_SIZE)) -eq 0 ]; then
+            echo -e "$batch_cmds" | $ZMPROV_CMD &>/dev/null &
+            batch_cmds=""
+        fi
+    done < <($ZMPROV_CMD -l gaa "$dominio")
+    
+    if [ -n "$batch_cmds" ]; then
+        echo -e "$batch_cmds" | $ZMPROV_CMD &>/dev/null &
+    fi
+    
+    wait
+    echo "[$(date +%H:%M:%S)] $count usuários processados em $dominio" | tee -a "$LOG_FILE"
+}
+
+## Execução principal
+{
+echo "==== INÍCIO DA EXECUÇÃO ===="
+date
+echo "E-mail de recuperação: $RECOVERY_EMAIL"
+
+# 1. Primeiro configura todos os COS
+configure_cos
+
+# 2. Depois configura domínios e usuários
+echo "----------------------------------------"
+echo "[$(date +%H:%M:%S)] Iniciando configuração de domínios" | tee -a "$LOG_FILE"
+
+# Habilitar para todos os domínios em paralelo
+$ZMPROV_CMD gad | xargs -P $PARALLEL_PROCESSES -I {} $ZMPROV_CMD md {} zimbraFeatureResetPasswordStatus enabled
+
+# Processar usuários de todos os domínios
+for dominio in $($ZMPROV_CMD gad); do
+    process_users "$dominio" &
+done
+
+wait
+
+echo "==== EXECUÇÃO CONCLUÍDA ===="
+date
+} | tee -a "$LOG_FILE"
+
+echo "Log completo disponível em: $LOG_FILE"
