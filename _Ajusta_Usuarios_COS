@@ -1,43 +1,96 @@
 #!/bin/bash
 
-# Verifica se está sendo executado como root
+# Script ultra-otimizado para configuração massiva no Zimbra
+# Autor: Seu Nome
+# Versão: 4.0
+# Data: $(date +%Y-%m-%d)
+
+## Configurações
+LOG_FILE="/var/log/zimbra_mass_config_$(date +%Y%m%d-%H%M%S).log"
+BATCH_SIZE=500  # Tamanho dos lotes para processamento
+PARALLEL_DOMAINS=10  # Número de domínios para processar em paralelo
+
+## Verificações iniciais
 if [ "$(id -u)" -ne 0 ]; then
-    echo "Este script deve ser executado como root."
-    exit 1
+   echo "ERRO: Execute como root" >&2
+   exit 1
 fi
 
-# Verifica se o usuário zimbra existe
 if ! id -u zimbra >/dev/null 2>&1; then
-    echo "Usuário zimbra não encontrado."
-    exit 1
+   echo "ERRO: Usuário zimbra não encontrado" >&2
+   exit 1
 fi
 
-# Obtém todos os domínios em ordem alfabética
-echo "Obtendo lista de domínios..."
-DOMINIOS=$(su - zimbra -c "zmprov gad" | sort)
+ZMPROV_CMD="/opt/zimbra/bin/zmprov"  # Caminho direto para melhor performance
 
-# Para cada domínio, obtém todos os usuários em ordem alfabética
+## Função para processar usuários em bloco
+process_batch() {
+    local dominio=$1
+    local usuarios=$2
+    
+    # Preparar comandos em bloco
+    local batch_cmds=""
+    local count=0
+    
+    while read usuario; do
+        batch_cmds+="ma $usuario zimbraPrefClientType '' "
+        batch_cmds+="zimbraPrefSkin '' "
+        batch_cmds+="zimbraAvailableSkin '' "
+        batch_cmds+="zimbraFeatureAllowUsernameInPassword '' "
+        batch_cmds+="zimbraPrefGroupMailBy ''\n"
+        
+        ((count++))
+    done <<< "$usuarios"
+    
+    # Executar bloco de comandos
+    echo -e "$batch_cmds" | su - zimbra -c "$ZMPROV_CMD" >/dev/null 2>&1
+    
+    echo "[$dominio] $count usuários processados em bloco"
+}
+
+## Execução principal
+{
+echo "==== INÍCIO DA EXECUÇÃO ===="
+date
+echo "Obtendo lista de domínios..."
+
+# Obter e ordenar domínios
+DOMINIOS=$(su - zimbra -c "$ZMPROV_CMD gad" | sort)
+
+echo "Processando ${#DOMINIOS[@]} domínios com até $PARALLEL_DOMAINS em paralelo..."
+
+# Processar domínios em paralelo
 for DOMINIO in $DOMINIOS; do
-    echo -e "\nProcessando domínio: $DOMINIO"
-    
-    # Obtém todos os usuários do domínio em ordem alfabética
-    USUARIOS=$(su - zimbra -c "zmprov -l gaa $DOMINIO" | sort)
-    
-    for USUARIO in $USUARIOS; do
-        # Combina todas as modificações em um único comando zmprov
-        COMANDO="ma $USUARIO zimbraPrefClientType '' zimbraPrefSkin '' zimbraAvailableSkin '' zimbraFeatureAllowUsernameInPassword '' zimbraPrefGroupMailBy ''"
+    (
+        echo "[$(date +%T)] Iniciando domínio: $DOMINIO"
         
-        # Executa o comando combinado
-        su - zimbra -c "zmprov $COMANDO" >/dev/null 2>&1
+        # Obter usuários ordenados
+        USUARIOS=$(su - zimbra -c "$ZMPROV_CMD -l gaa $DOMINIO" | sort)
+        TOTAL_USERS=$(wc -l <<< "$USUARIOS")
         
-        # Verifica se o comando foi executado com sucesso
-        if [ $? -eq 0 ]; then
-            echo "Usuário processado: $USUARIO"
-        else
-            echo "Erro ao atualizar usuário: $USUARIO"
-        fi
-    done
-    echo "Domínio concluído: $DOMINIO"
+        echo "[$DOMINIO] Encontrados $TOTAL_USERS usuários"
+        
+        # Dividir em lotes e processar
+        offset=0
+        while [ $offset -lt $TOTAL_USERS ]; do
+            batch=$(tail -n +$offset <<< "$USUARIOS" | head -n $BATCH_SIZE)
+            process_batch "$DOMINIO" "$batch"
+            offset=$((offset + BATCH_SIZE))
+        done
+        
+        echo "[$(date +%T)] Domínio concluído: $DOMINIO"
+    ) &
+    
+    # Controlar paralelismo
+    if (( $(jobs -p | wc -l) >= PARALLEL_DOMAINS )); then
+        wait -n
+    fi
 done
 
-echo -e "\nProcesso concluído para todos os domínios."
+wait  # Aguardar todos os domínios
+
+echo "==== EXECUÇÃO CONCLUÍDA ===="
+date
+} | tee -a "$LOG_FILE"
+
+echo "Log completo disponível em: $LOG_FILE"
