@@ -1,60 +1,125 @@
 #!/bin/bash
-clear
 
-echo "[`date +'%d.%m.%Y %H:%M'`] Iniciando Backup ..."
-         echo "+-------------------------------------------------+OK"
-         echo
-         
-echo "[`date +'%d.%m.%Y %H:%M'`] Exportar configuração atual [1/4] ..."
-su - zimbra -c '/Scripts_Zimbra/_Export_Dados'
-         echo "+-------------------------------------------------+OK"
-         echo
-         
-# Diretórios para fazer backup, /etc /root /var
-source='/opt/zimbra/backup/'
+# =====================[ CONFIGURAÇÕES INICIAIS ]====================
 
-# Senha para compactação
-senha='q|?a)N2#8d^JS^lm2EF29g*D$l#}aIu('
+DATA=$(date +'%Y-%m-%d %H:%M')
+DIA=$(date +'%Y%m%d')
+HOST=$(hostname -a)
 
-# Pasta para Excluir do backup
-#exclude=''
+# Diretório de destino dos backups
+BACKUP_DIR="/Backup"
 
-# Diretório de backup, /Backup
-#backup=/Backup/"`hostname`"
-backup=/Backup
-mkdir -p $backup
+# Caminhos a serem incluídos no backup (serão filtrados abaixo)
+SOURCE="/Scripts /etc /root /usr/local /opt/zimbra/backup /opt/zimbra/conf"
 
-# Definição de Variavel
-datum=$(date +'%Y%m%d')
-dateinametar=$backup/"`hostname -a`"-backup$datum.tar
-dateinamezip=$backup/"`hostname -a`"-backup$datum.zip
+# Senha do ZIP
+ZIP_PASS='q|?a)N2#8d^JS^lm2EF29g*D$l#}aIu('
 
-# -----------------------------------------------------
-function f_delFiles()
-# -----------------------------------------------------
-# $1 Diretório de backup
-{
-  loeschdatum=$(date --date='7 days ago' +'%Y%m%d')
-  rm $1/"`hostname -a`"-backup$loeschdatum.*
+# Arquivos de saída
+DEST_TAR="${BACKUP_DIR}/${HOST}-backup${DIA}.tar"
+DEST_ZIP="${BACKUP_DIR}/${HOST}-backup${DIA}.zip"
+
+# Script de envio remoto (LFTP)
+UPLOAD_SCRIPT="/Scripts/_Upload_LFTP"
+
+# E-mail para alertas de erro
+EMAIL_TO="thiago@hostlp.net"
+
+# Quantidade de backups locais a manter
+DIAS_RETER=7
+
+# Log do processo
+LOG="/var/log/backup_${HOST}.log"
+
+# Status de execução
+STATUS="OK"
+
+# Redireciona tudo para log e tela
+exec > >(tee -a "$LOG") 2>&1
+
+# =====================[ FUNÇÕES DE APOIO ]====================
+
+erro() {
+    echo "[ERRO] $1"
+    STATUS="ERRO"
 }
 
-echo "[`date +'%d.%m.%Y %H:%M'`] Exclundo arquivos em $backup, com mais de 7 dias [2/4] ..."
-f_delFiles $backup
-         echo "+-------------------------------------------------+OK"
-         echo
-         
-echo "[`date +'%d.%m.%Y %H:%M'`] Salve $source em $dateiname [3/4] ..."
-tar -Pcf $dateinametar $source
-zip -P $senha -r $dateinamezip $dateinametar
-rm $dateinametar
-         echo "+-------------------------------------------------+OK"
-         echo
-         
-echo "[`date +'%d.%m.%Y %H:%M'`] Sincronizar com armazenamento online [4/4] ..."
-bash /Scripts/_Upload_LFTP
-         echo "+-------------------------------------------------+OK"
-         echo
-         
-echo "[`date +'%d.%m.%Y %H:%M'`] Pronto!"
-         echo "+-------------------------------------------------+OK"
-         echo
+verificar_prerequisitos() {
+    echo "[$(date +'%d.%m.%Y %H:%M')] Verificando pré-requisitos..."
+
+    # Verifica e instala mailx
+    if ! command -v mailx >/dev/null 2>&1; then
+        echo " - mailx não encontrado. Instalando..."
+        apt update && apt install -y mailutils || erro "Falha ao instalar mailx"
+    fi
+
+    # Verifica e cria diretório de backup
+    if [ ! -d "$BACKUP_DIR" ]; then
+        echo " - Diretório $BACKUP_DIR não existe. Criando..."
+        mkdir -p "$BACKUP_DIR" || erro "Falha ao criar $BACKUP_DIR"
+    fi
+}
+
+delete_old_backups() {
+    echo "[$(date +'%d.%m.%Y %H:%M')] Mantendo apenas os últimos $DIAS_RETER backups..."
+    find "$BACKUP_DIR" -maxdepth 1 -type f -name "${HOST}-backup*.zip" | \
+        sort -r | \
+        tail -n +$(($DIAS_RETER + 1)) | \
+        while read file; do
+            echo "Removendo backup antigo: $file"
+            rm -f "$file" || erro "Falha ao remover $file"
+        done
+}
+
+# =====================[ PROCESSO DE BACKUP ]====================
+
+echo "[$DATA] Iniciando backup em ${HOST}"
+echo "---------------------------------------------"
+
+# Etapa 0: Verificação de pré-requisitos
+verificar_prerequisitos
+
+# Etapa 1: Exportar configuração (se aplicável)
+echo "[`date +'%d.%m.%Y %H:%M'`] Exportando configuração atual [1/4] ..."
+# pmgbackup backup  # Descomente se estiver usando Proxmox Mail Gateway
+
+# Etapa 2: Limpeza de backups antigos
+echo "[`date +'%d.%m.%Y %H:%M'`] Excluindo backups antigos [2/4] ..."
+delete_old_backups
+
+# Etapa 3: Compactação
+echo "[`date +'%d.%m.%Y %H:%M'`] Compactando dados em TAR e ZIP [3/4] ..."
+
+# Gerar lista com apenas os diretórios existentes
+VALID_SOURCE=""
+for dir in $SOURCE; do
+    if [ -d "$dir" ]; then
+        VALID_SOURCE+="$dir "
+    else
+        echo "[AVISO] Diretório não encontrado e será ignorado: $dir"
+    fi
+done
+
+# Verifica se há ao menos 1 diretório válido
+if [ -z "$VALID_SOURCE" ]; then
+    erro "Nenhum diretório válido encontrado para backup"
+else
+    tar -Pcf "$DEST_TAR" $VALID_SOURCE || erro "Erro ao gerar TAR"
+    zip -P "$ZIP_PASS" -r "$DEST_ZIP" "$DEST_TAR" || erro "Erro ao gerar ZIP"
+    rm -f "$DEST_TAR"
+fi
+
+# Etapa 4: Envio remoto
+echo "[`date +'%d.%m.%Y %H:%M'`] Enviando backup via LFTP [4/4] ..."
+bash "$UPLOAD_SCRIPT" || erro "Erro ao executar script de envio remoto"
+
+# Finalização
+echo "[`date +'%d.%m.%Y %H:%M'`] Backup finalizado com STATUS: $STATUS"
+echo "---------------------------------------------"
+
+# =====================[ ENVIO DE E-MAIL EM CASO DE ERRO ]====================
+
+if [ "$STATUS" != "OK" ]; then
+    echo "[`date +'%d.%m.%Y %H:%M'`] Enviando e-mail de falha para $EMAIL_TO ..."
+    mailx -s "🚨 ERRO no Backup ${HOST} em ${DIA}" "$EMAIL_TO" < "$LOG"
+fi
