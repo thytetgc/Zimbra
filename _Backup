@@ -48,10 +48,10 @@ verificar_prerequisitos() {
     echo "[$(date +'%d.%m.%Y %H:%M')] Verificando pré-requisitos..."
 
     # Verifica e instala mailx
-    if ! command -v mailx >/dev/null 2>&1; then
-        echo " - mailx não encontrado. Instalando..."
-        apt update && apt install -y mailutils || erro "Falha ao instalar mailx"
-    fi
+#    if ! command -v mailx >/dev/null 2>&1; then
+#        echo " - mailx não encontrado. Instalando..."
+#        apt update && apt install -y mailutils || erro "Falha ao instalar mailx"
+#    fi
 
     # Verifica e cria diretório de backup
     if [ ! -d "$BACKUP_DIR" ]; then
@@ -121,5 +121,5 @@ echo "---------------------------------------------"
 
 if [ "$STATUS" != "OK" ]; then
     echo "[`date +'%d.%m.%Y %H:%M'`] Enviando e-mail de falha para $EMAIL_TO ..."
-    mailx -s "🚨 ERRO no Backup ${HOST} em ${DIA}" "$EMAIL_TO" < "$LOG"
+	/usr/bin/mail -r root -s "🚨 ERRO no Backup ${HOST} em ${DIA}" "$EMAIL_TO" < "$LOG"
 fi
