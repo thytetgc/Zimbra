@@ -161,6 +161,7 @@ $UsrZ 'zmprov mc default zimbraDumpsterEnabled TRUE'
 	 
 echo "Aumenta Limite de Visualizar Anexo"
 $UsrZ 'zmprov mc default zimbraFilePreviewMaxSize 52428800'
+$UsrZ 'zmprov fc all'
 	 echo "+-------------------------------------------------+OK"
 
 echo "Habilita limpar a pasta da lixeira"
