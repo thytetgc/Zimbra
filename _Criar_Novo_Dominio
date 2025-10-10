@@ -91,7 +91,7 @@ $UsrZ 'zmprov ms `zmhostname` zimbraMailPurgeSleepInterval 1m'
 
 echo "Alterar Tamanho de Visualizar anexo em bytes (10485760  = 10MB / 20971520  = 20MB / 31457280  = 30MB / 41943040  = 40MB / 52428800 = 50MB)"
 echo "Ou ENTER para ilimitado"
-echo -n "Digite em bytes a quota do novo Dominio: "
+echo -n "Digite em bytes para Visualizar anexo do novo Dominio: "
 read ATTACHSIZE
 $UsrZ 'zmprov mc "'$NEWCOS'" zimbraFilePreviewMaxSize "'$ATTACHSIZE'"'
 $UsrZ 'zmprov fc all'
