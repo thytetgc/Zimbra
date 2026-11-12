@@ -393,8 +393,13 @@ CSS
   background: transparent !important; box-shadow: none !important; color: #1d2433 !important;
   transition: border-bottom-color .15s ease, border-bottom-width .15s ease !important;
 }
-#modifiedLogin .zLoginFieldInput:focus, #modifiedLogin .zLoginFieldInput:focus-visible {
-  border-bottom: 2px solid #2cb4dc !important; outline: none !important; box-shadow: none !important;
+#modifiedLogin .zLoginFieldInput:focus, #modifiedLogin .zLoginFieldInput:focus-visible,
+#modifiedLogin form#zLoginForm .form input[type='text'].zLoginFieldInput:focus,
+#modifiedLogin form#zLoginForm .form input[type='password'].zLoginFieldInput:focus,
+#modifiedLogin form#zLoginForm .form input[type='text'].zLoginFieldInput:focus-visible,
+#modifiedLogin form#zLoginForm .form input[type='password'].zLoginFieldInput:focus-visible {
+  border: 0 !important; border-bottom: 2px solid #2cb4dc !important;
+  outline: 0 !important; outline-width: 0 !important; box-shadow: none !important;
 }
 #modifiedLogin .passwordWrapper, #modifiedLogin .passwordWrapper:focus-within,
 #modifiedLogin .loginSection, #modifiedLogin .loginSection:focus-within,
