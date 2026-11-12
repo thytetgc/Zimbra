@@ -1,0 +1,450 @@
+#!/bin/bash
+# _Personalizar_Webmail -- tela de login + Modern UI HostLP (idempotente). Rodar como root apos cada atualizacao do Zimbra.
+# Uso: _Personalizar_Webmail            -> aplica tudo (login + Modern UI) e reinicia o mailboxd
+#      _Personalizar_Webmail --modern   -> aplica so o Modern UI (sem restart; arquivos estaticos)
+#      _Personalizar_Webmail --favicon  -> so sincroniza o favicon do Modern UI com o site (cron diario, sem restart)
+# Fundo do login e favicon do login ficam ONLINE (site.hostlp.com.br).
+set -u
+IMG_URL="https://site.hostlp.com.br/imagens/zimbra/zimbra_webmail.png"
+ICO_URL="https://site.hostlp.com.br/imagens/zimbra/favicon.ico"
+TITULO="Webmail"
+BOTAO="Acessar"
+WEB=/opt/zimbra/jetty/webapps/zimbra
+SKIN=$WEB/skins/zextras
+MSG=$WEB/WEB-INF/classes/messages
+MODROOT=$WEB/modern
+MOD=$MODROOT/clients/default
+SW=$MODROOT/sw.js
+
+chaves() { echo "$(tr -cd '{' < "$1" | wc -c) $(tr -cd '}' < "$1" | wc -c)"; }
+gz() { gzip -9 -k -f "$1"; chown zimbra:zimbra "$1.gz"; rm -f "$1.br"; }
+# swrev URL ARQUIVO -- grava o md5 do arquivo como revisao do pre-cache no sw.js
+swrev() { local h; h=$(md5sum "$2" | cut -c1-32); sed -i -E "s#(\{url:\"$1\",revision:\")[0-9a-f]+\"#\1${h}\"#" "$SW"; }
+sync_favicon() {
+  local tmp host ip
+  tmp=$(mktemp); host=$(echo "$ICO_URL" | awk -F/ '{print $3}')
+  if ! curl -fsSL "$ICO_URL" -o "$tmp"; then
+    ip=$(dig +short "$host" @1.1.1.1 | grep -E '^[0-9.]+$' | tail -1)
+    [ -n "$ip" ] && curl -fsSL --resolve "$host:443:$ip" "$ICO_URL" -o "$tmp"
+  fi
+  if [ -s "$tmp" ] && file -b --mime-type "$tmp" | grep -qE '^image/(vnd.microsoft.icon|x-icon)$'; then
+    if ! cmp -s "$tmp" "$MOD/assets/favicon.ico"; then
+      install -o zimbra -g zimbra -m 644 "$tmp" "$MOD/assets/favicon.ico"; gz "$MOD/assets/favicon.ico"
+      swrev "/modern/clients/default/assets/favicon.ico" "$MOD/assets/favicon.ico"; gz "$SW"
+      echo "favicon modern: atualizado"
+    else
+      echo "favicon modern: sem mudanca"
+    fi
+  else
+    echo "favicon modern: FALHA no download (mantido o atual)"
+  fi
+  rm -f "$tmp"
+}
+
+aplicar_modern() {
+  mkdir -p "$BK/modern"
+  cp -a "$MOD/config.json" "$MOD/assets/favicon.ico" "$MODROOT/index.html" "$SW" "$BK/modern/"; cp -a "$MOD/pwa/manifest.json" "$BK/modern/"
+  for f in hostlp.css hostlp.js; do [ -f "$MODROOT/$f" ] && cp -a "$MODROOT/$f" "$BK/modern/"; done
+
+  # titulo e cores da marca (JSON editado como JSON)
+  python3 - "$MOD/config.json" "$MOD/pwa/manifest.json" "$TITULO" <<'PY'
+import json, sys
+cfg, man, tit = sys.argv[1], sys.argv[2], sys.argv[3]
+c = json.load(open(cfg))
+c["title"] = tit; c["clientName"] = tit
+c.update({"svgIcon": "#0b2a6b", "brandPrimary": "#0b2a6b", "brandSecondary": "#2cb4dc",
+          "brandTertiary": "#0b2a6b", "backgroundColor": "#0b2a6b", "themeColor": "#0b2a6b"})
+c.setdefault("faviconBadge", {})["onlineTextColor"] = "#0b2a6b"
+open(cfg, "w").write(json.dumps(c, indent=2, ensure_ascii=False) + "\n")
+m = json.load(open(man))
+m["name"] = tit; m["short_name"] = tit
+for k in ("theme_color", "background_color"):
+    if k in m: m[k] = "#0b2a6b"
+open(man, "w").write(json.dumps(m, indent=2, ensure_ascii=False) + "\n")
+print("modern: json ok")
+PY
+
+  # icones do modo compacto (e limpeza dos icones de teste antigos)
+  cat > "$MODROOT/hostlp_menu.svg" <<'SVG'
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#33415c" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+SVG
+  cat > "$MODROOT/hostlp_pencil.svg" <<'SVG'
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+SVG
+  rm -f "$MODROOT"/hostlp_cal.svg "$MODROOT"/hostlp_user.svg "$MODROOT"/hostlp_upload.svg "$MODROOT"/hostlp_plus.svg
+  chown zimbra:zimbra "$MODROOT"/hostlp_*.svg; chmod 644 "$MODROOT"/hostlp_*.svg
+
+  # CSS HostLP do Modern UI (arquivo proprio, carregado depois do bundle)
+  cat > "$MODROOT/hostlp.css" <<'CSS'
+:root {
+  --brand-primary-50: #e3e8f1; --brand-primary-100: #b9c4dc; --brand-primary-200: #8b9fc5; --brand-primary-300: #5d79ad;
+  --brand-primary-400: #3a5c9b; --brand-primary-500: #0b2a6b; --brand-primary-600: #0a2661; --brand-primary-700: #082054;
+  --brand-primary-800: #071b47; --brand-primary-900: #051335;
+  --brand-secondary-50: #e0f5fb; --brand-secondary-100: #b3e6f4; --brand-secondary-200: #80d5ed; --brand-secondary-300: #4dc4e5;
+  --brand-secondary-400: #3abce0; --brand-secondary-500: #2cb4dc; --brand-secondary-600: #27a3c8; --brand-secondary-700: #208ead;
+  --brand-secondary-800: #1a7a94; --brand-secondary-900: #105a6e;
+}
+@keyframes hlpPop { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: scale(1); } }
+@keyframes hlpMenu { from { opacity: 0; transform: translateY(-4px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+.zimbra-client_app-navigation_active, .zimbra-client_folder-list_itemLink, .zimbra-client_folder-list_badge,
+.zimbra-client_sidebar-primary-button_button, .zimbra-client_search-input_container, .zimbra-client_group-by-wrapper_groupByRow {
+  transition: background-color .2s ease, box-shadow .2s ease, color .2s ease, transform .2s ease !important; }
+.zimbra-client_mail-list-item_message { transition: background-color .2s ease, box-shadow .25s ease !important; }
+
+.zimbra-client_app-navigation_active { position: relative !important; isolation: isolate !important; background: transparent !important; color: #ffffff !important; }
+.zimbra-client_app-navigation_active::before {
+  content: "" !important; position: absolute !important; inset: 12% 4px !important; z-index: -1 !important;
+  border-radius: 10px !important; background: linear-gradient(135deg, #0b2a6b, #1d5fae) !important;
+  box-shadow: 0 4px 12px rgba(11,42,107,.22) !important; animation: hlpPop .25s ease !important; }
+.zimbra-client_app-navigation_active * { color: #ffffff !important; }
+
+.zimbra-client_sidebar-primary-button_button {
+  background: linear-gradient(135deg, #0b2a6b, #1d5fae) !important; border: 0 !important; color: #ffffff !important;
+  border-radius: 10px !important; box-shadow: 0 4px 12px rgba(11,42,107,.22) !important; }
+.zimbra-client_sidebar-primary-button_button:hover { transform: translateY(-1px) !important; box-shadow: 0 6px 16px rgba(11,42,107,.30) !important; }
+
+.zimbra-client_folder-list_badge { background: #dbe7f6 !important; color: #0b2a6b !important; border-radius: 10px !important; }
+.zimbra-client_folder-list_itemLink:hover .zimbra-client_folder-list_badge,
+.zimbra-client_folder-list_active .zimbra-client_folder-list_badge { background: #0b2a6b !important; color: #ffffff !important; }
+
+@media (prefers-color-scheme: light) {
+  html:not([data-theme=dark]) .zimbra-client_app { background-color: #f4f7fb !important; }
+  html:not([data-theme=dark]) .zimbra-client_header {
+    background-color: #ffffff !important; border-bottom: 3px solid transparent !important;
+    border-image: linear-gradient(90deg, #0b2a6b, #2cb4dc) 1 !important; }
+  html:not([data-theme=dark]) .zimbra-client_app-navigation_tabsWrapper { background-color: #f4f7fb !important; }
+  html:not([data-theme=dark]) .zimbra-client_search-input_container {
+    background-color: #eef3f9 !important; border-color: transparent !important; border-radius: 20px !important; }
+  html:not([data-theme=dark]) .zimbra-client_search-input_container:focus-within {
+    background-color: #ffffff !important; box-shadow: 0 0 0 3px rgba(44,180,220,.25) !important; }
+  html:not([data-theme=dark]) .zimbra-client_search-input_input { background-color: transparent !important; }
+  html:not([data-theme=dark]) .zimbra-client_sidebar, html:not([data-theme=dark]) .zimbra-client_sidebar_wrap,
+  html:not([data-theme=dark]) .zimbra-client_sidebar_inner, html:not([data-theme=dark]) .zimbra-client_sidebar_content,
+  html:not([data-theme=dark]) .zimbra-client_folder-list_folderList { background-color: #e8eef6 !important; }
+  html:not([data-theme=dark]) .zimbra-client_folder-list_itemLink {
+    color: #33415c !important; border-radius: 8px !important; margin: 1px 8px !important; }
+  html:not([data-theme=dark]) .zimbra-client_folder-list_itemLink[href]:hover { background-color: rgba(255,255,255,.65) !important; }
+  html:not([data-theme=dark]) .zimbra-client_folder-list_itemLink.zimbra-client_folder-list_active,
+  html:not([data-theme=dark]) .zimbra-client_folder-list_itemLink.zimbra-client_folder-list_active[href]:hover,
+  html:not([data-theme=dark]) .zimbra-client_folder-list_itemLink.zimbra-client_folder-list_active[href]:focus {
+    background-color: #ffffff !important; border-left-color: #2cb4dc !important; color: #0b2a6b !important;
+    font-weight: 500 !important; box-shadow: 0 1px 4px rgba(11,42,107,.10) !important; }
+  html:not([data-theme=dark]) .zimbra-client_toolbar, html:not([data-theme=dark]) .zimbra-client_toolbar_toolbarContainer,
+  html:not([data-theme=dark]) .zimbra-client_mail-list-header_mailListHeader { background-color: #f4f7fb !important; }
+  html:not([data-theme=dark]) .zimbra-client_mail-list_smartMessageList, html:not([data-theme=dark]) .zimbra-client_mail-list_scrollableList,
+  html:not([data-theme=dark]) .zimbra-client_mail-list_scrollableInner { background-color: #f9fbfd !important; }
+  html:not([data-theme=dark]) .zimbra-client_group-by-wrapper_groupByRow { background-color: #eaf0f7 !important; color: #0b2a6b !important; font-weight: 500 !important; }
+  html:not([data-theme=dark]) .zimbra-client_group-by-wrapper_groupByRow * { color: #0b2a6b !important; }
+  html:not([data-theme=dark]) .zimbra-client_mail-list-item_message { background-color: transparent !important; border-bottom-color: #e6ebf2 !important; }
+  html:not([data-theme=dark]) .zimbra-client_mail-list-item_message:hover { background-color: #eef6fb !important; }
+  html:not([data-theme=dark]) .zimbra-client_mail-list-item_selected, html:not([data-theme=dark]) .zimbra-client_mail-list-item_isSelected {
+    background-color: #dff1f8 !important; box-shadow: inset 3px 0 0 #2cb4dc !important; }
+  html:not([data-theme=dark]) .zimbra-client_mail-list-item_unread .zimbra-client_mail-list-item_unreadControl { color: #2cb4dc !important; fill: #2cb4dc !important; }
+}
+
+@media (min-width: 769px) {
+  .zimbra-client_sidebar { transition: max-width .3s cubic-bezier(.2,.7,.2,1), min-width .3s cubic-bezier(.2,.7,.2,1), width .3s cubic-bezier(.2,.7,.2,1) !important; }
+  .zimbra-client_sidebar .zimbra-client_sidebar_collapsibleControl { display: none !important; }
+  #hlp-rail-btn {
+    position: fixed; top: 14px; left: 10px; z-index: 1000; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
+    background: transparent url('/modern/hostlp_menu.svg') center / 20px 20px no-repeat;
+    transition: background-color .2s ease, transform .15s ease, opacity .2s ease; }
+  #hlp-rail-btn:hover { background-color: #eef3f9; }
+  #hlp-rail-btn:active { transform: scale(.9); }
+  html:not([data-hlp-app="email"]) #hlp-rail-btn { opacity: 0; pointer-events: none; }
+  .zimbra-client_header_primaryLogo { margin-left: 36px !important; }
+
+  html.hlp-rail[data-hlp-app="email"] .zimbra-client_sidebar { max-width: 68px !important; min-width: 68px !important; width: 68px !important; }
+  html.hlp-rail[data-hlp-app="email"] .zimbra-client_sidebar, html.hlp-rail[data-hlp-app="email"] .zimbra-client_sidebar_inner,
+  html.hlp-rail[data-hlp-app="email"] .zimbra-client_sidebar_content, html.hlp-rail[data-hlp-app="email"] .zimbra-client_folder-list_folderList,
+  html.hlp-rail[data-hlp-app="email"] .zimbra-client_folder-list_virtualList { overflow-x: hidden !important; }
+  html.hlp-rail[data-hlp-app="email"] .zimbra-client_folder-list_itemTitle, html.hlp-rail[data-hlp-app="email"] .zimbra-client_folder-list_tagName,
+  html.hlp-rail[data-hlp-app="email"] .zimbra-client_folder-list_folderItemAction,
+  html.hlp-rail[data-hlp-app="email"] .zimbra-client_folder-list_customFolderToggleName { display: none !important; }
+  html.hlp-rail[data-hlp-app="email"] .zimbra-client_folder-list_groupToggle {
+    flex: 1 1 auto !important; width: auto !important; min-width: 0 !important; padding-left: 0 !important; padding-right: 0 !important;
+    justify-content: center !important; font-size: 0 !important; color: transparent !important; overflow: hidden !important; }
+  html.hlp-rail[data-hlp-app="email"] .zimbra-client_folder-list_customFolderToggle { justify-content: center !important; }
+  html.hlp-rail[data-hlp-app="email"] .zimbra-client_folder-list_customFolderToggle button[class*=action-button] {
+    margin-left: auto !important; margin-right: auto !important; font-size: 14px !important; color: #33415c !important;
+    border-radius: 8px !important; transition: background-color .2s ease, transform .15s ease !important; }
+  html.hlp-rail[data-hlp-app="email"] .zimbra-client_folder-list_customFolderToggle button[class*=action-button]:hover {
+    background-color: rgba(255,255,255,.8) !important; transform: scale(1.1); }
+  html.hlp-rail[data-hlp-app="email"] .zimbra-client_folder-list_itemLink, html.hlp-rail[data-hlp-app="email"] .zimbra-client_folder-list_tagLink {
+    position: relative !important; justify-content: center !important; border-radius: 10px !important;
+    margin-left: 10px !important; margin-right: 10px !important; padding-left: 0 !important; padding-right: 0 !important; }
+  html.hlp-rail[data-hlp-app="email"] .zimbra-client_folder-list_itemInner {
+    padding-left: 0 !important; padding-right: 0 !important; justify-content: center !important; }
+  html.hlp-rail[data-hlp-app="email"] .zimbra-client_folder-list_itemLink > *,
+  html.hlp-rail[data-hlp-app="email"] .zimbra-client_folder-list_tagLink > * { margin-left: 0 !important; margin-right: 0 !important; }
+  html.hlp-rail[data-hlp-app="email"] .zimbra-client_folder-list_badge {
+    position: absolute !important; top: 2px !important; right: 2px !important; margin: 0 !important; padding: 0 5px !important;
+    font-size: 10px !important; line-height: 16px !important; border-radius: 8px !important; }
+  html.hlp-rail[data-hlp-app="email"] .zimbra-client_sidebar-primary-button_button {
+    width: 44px !important; margin-left: auto !important; margin-right: auto !important; border-radius: 10px !important;
+    color: transparent !important; white-space: nowrap !important; overflow: hidden !important; text-indent: 200% !important;
+    background: url('/modern/hostlp_pencil.svg') center / 20px 20px no-repeat, linear-gradient(135deg, #0b2a6b, #1d5fae) !important; }
+  html.hlp-rail[data-hlp-app="email"] .zimbra-client_sidebar-primary-button_button * { visibility: hidden !important; }
+}
+
+.zimbra-client_folder-list_folderIcon { transition: transform .2s ease !important; }
+.zimbra-client_folder-list_itemLink:hover .zimbra-client_folder-list_folderIcon { transform: scale(1.12) !important; }
+.zimbra-client_folder-list_itemLink[href]:hover { transform: translateX(2px); }
+.zimbra-client_action-menu_dropdown, [class*="zimbra-client_popover"] {
+  animation: hlpMenu .18s ease-out !important; border-radius: 10px !important; box-shadow: 0 10px 30px rgba(11,42,107,.18) !important; }
+.zimbra-client_action-menu-item_item { transition: background-color .15s ease, transform .15s ease !important; }
+.zimbra-client_action-menu-item_item:hover { transform: translateX(3px); }
+.zimbra-client_app button { transition: transform .12s ease, background-color .2s ease, box-shadow .2s ease; }
+.zimbra-client_app button:active { transform: scale(.97); }
+
+#hlp-tip {
+  position: fixed; z-index: 100000; pointer-events: none; max-width: 280px; padding: 6px 10px; border-radius: 8px;
+  background: #0b2a6b; color: #ffffff; font: 500 12px/1.35 Roboto, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  box-shadow: 0 6px 18px rgba(11,42,107,.28); opacity: 0; transform: translateY(-4px) scale(.96);
+  transition: opacity .16s ease, transform .16s ease; white-space: normal; }
+#hlp-tip.on { opacity: 1; transform: translateY(0) scale(1); }
+CSS
+  chown zimbra:zimbra "$MODROOT/hostlp.css"; chmod 644 "$MODROOT/hostlp.css"; gz "$MODROOT/hostlp.css"
+  read A2 F2 < <(chaves "$MODROOT/hostlp.css")
+  if [ "$A2" != "$F2" ]; then
+    \cp -a "$BK/modern/hostlp.css" "$MODROOT/hostlp.css" 2>/dev/null; gz "$MODROOT/hostlp.css"
+    echo "ERRO: chaves do hostlp.css desequilibradas ({=$A2 }=$F2). hostlp.css anterior restaurado."
+  else
+    echo "modern: hostlp.css ok ({=$A2 }=$F2)"
+  fi
+
+  # JS HostLP: modo compacto (so E-mail), dicas animadas e marcacao do aplicativo aberto
+  cat > "$MODROOT/hostlp.js" <<'JS'
+(function () {
+  try {
+    var KEY = 'hlpRail', root = document.documentElement;
+    try { if (localStorage.getItem(KEY) === '1') root.classList.add('hlp-rail'); } catch (e) {}
+    function toggle() {
+      root.classList.toggle('hlp-rail');
+      try { localStorage.setItem(KEY, root.classList.contains('hlp-rail') ? '1' : '0'); } catch (e) {}
+    }
+    function marcaApp() {
+      try {
+        var m = location.pathname.match(/^\/modern\/([a-z]+)/);
+        var app = m ? m[1] : 'email';
+        if (root.getAttribute('data-hlp-app') !== app) root.setAttribute('data-hlp-app', app);
+      } catch (e) {}
+    }
+    function addBtn() {
+      if (document.getElementById('hlp-rail-btn')) return;
+      var b = document.createElement('button');
+      b.id = 'hlp-rail-btn'; b.type = 'button';
+      b.title = 'Recolher ou expandir o menu'; b.setAttribute('aria-label', 'Recolher ou expandir o menu');
+      b.addEventListener('click', toggle);
+      document.body.appendChild(b);
+    }
+    function limpa(s) { return (s || '').replace(/\s+/g, ' ').replace(/^\s*\+\s*/, '').trim(); }
+    function texto(el) { return limpa(el && el.textContent); }
+
+    var tip = null, alvo = null, tmr = null;
+    function esconde() {
+      clearTimeout(tmr); alvo = null;
+      if (tip) tip.classList.remove('on');
+    }
+    function mostra(el) {
+      try {
+        var t = el.getAttribute('data-hlp-tip');
+        if (!t || !el.isConnected) return;
+        if (!tip) { tip = document.createElement('div'); tip.id = 'hlp-tip'; tip.setAttribute('role', 'tooltip'); document.body.appendChild(tip); }
+        tip.classList.remove('on'); tip.textContent = t;
+        tip.style.left = '-9999px'; tip.style.top = '-9999px';
+        var r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, x, y;
+        var naFaixa = root.classList.contains('hlp-rail') && el.closest('.zimbra-client_sidebar');
+        if (naFaixa) { x = r.right + 10; y = r.top + r.height / 2 - h / 2; }
+        else {
+          x = r.left + r.width / 2 - w / 2; y = r.bottom + 8;
+          if (y + h > window.innerHeight - 4) y = r.top - h - 8;
+        }
+        x = Math.max(6, Math.min(x, window.innerWidth - w - 6));
+        y = Math.max(6, y);
+        tip.style.left = Math.round(x) + 'px'; tip.style.top = Math.round(y) + 'px';
+        requestAnimationFrame(function () { if (alvo === el) tip.classList.add('on'); });
+      } catch (e) {}
+    }
+    document.addEventListener('mouseover', function (ev) {
+      try {
+        if (!ev.target.closest) return;
+        var a = ev.target.closest('.zimbra-client_folder-list_itemLink, .zimbra-client_folder-list_tagLink, .zimbra-client_sidebar-primary-button_button');
+        if (a && !a.getAttribute('title') && !a.getAttribute('data-hlp-tip')) a.setAttribute('title', texto(a));
+        var p = ev.target.closest('.zimbra-client_folder-list_customFolderToggle button');
+        if (p && !p.getAttribute('data-hlp-title')) {
+          var rot = limpa(p.getAttribute('title') || p.getAttribute('aria-label'));
+          if (!rot) {
+            var g = p.closest('.zimbra-client_folder-list_customFolderToggle');
+            var nome = texto(g && g.querySelector('.zimbra-client_folder-list_customFolderToggleName'));
+            rot = /pasta/i.test(nome) ? 'Nova pasta' : (nome ? 'Adicionar em ' + nome : 'Adicionar');
+          }
+          p.setAttribute('title', rot); p.setAttribute('data-hlp-title', '1');
+        }
+        var el = ev.target.closest('[title], [data-hlp-tip]');
+        if (!el || !(el.closest('#zimbra-client') || el.id === 'hlp-rail-btn')) return;
+        var tt = el.getAttribute('title');
+        if (tt) {
+          el.setAttribute('data-hlp-tip', limpa(tt));
+          if (!el.getAttribute('aria-label')) el.setAttribute('aria-label', limpa(tt));
+          el.removeAttribute('title');
+        }
+        if (alvo === el) return;
+        esconde(); alvo = el;
+        tmr = setTimeout(function () { if (alvo === el) mostra(el); }, 350);
+      } catch (e) {}
+    });
+    document.addEventListener('mouseout', function (ev) {
+      try {
+        if (alvo && (!ev.relatedTarget || !alvo.contains(ev.relatedTarget))) {
+          if (ev.target === alvo || alvo.contains(ev.target)) esconde();
+        }
+      } catch (e) {}
+    });
+    ['mousedown', 'wheel', 'keydown', 'blur'].forEach(function (n) { window.addEventListener(n, esconde, true); });
+
+    marcaApp(); setInterval(marcaApp, 500);
+    if (document.readyState !== 'loading') addBtn(); else document.addEventListener('DOMContentLoaded', addBtn);
+  } catch (e) {}
+})();
+JS
+  chown zimbra:zimbra "$MODROOT/hostlp.js"; chmod 644 "$MODROOT/hostlp.js"; gz "$MODROOT/hostlp.js"
+  echo "modern: hostlp.js ok"
+
+  # injeta <link> e <script> no index.html (depois do bundle), com versao para furar cache
+  local VC VJ
+  VC=$(md5sum "$MODROOT/hostlp.css" | cut -c1-10); VJ=$(md5sum "$MODROOT/hostlp.js" | cut -c1-10)
+  perl -0pi -e 's{<link id="hostlp-css"[^>]*>}{}g; s{<script id="hostlp-js"[^>]*></script>}{}g' "$MODROOT/index.html"
+  perl -0pi -e "s{</head>}{<link id=\"hostlp-css\" href=\"/modern/hostlp.css?v=${VC}\" rel=\"stylesheet\"><script id=\"hostlp-js\" src=\"/modern/hostlp.js?v=${VJ}\" defer></script></head>}" "$MODROOT/index.html"
+  echo "modern: index.html ->"; grep -oE '<(link|script) id="hostlp-(css|js)"[^>]*>' "$MODROOT/index.html"
+
+  # favicon, recompactacao e revisoes do service worker
+  sync_favicon
+  for f in "$MOD/config.json" "$MOD/pwa/manifest.json" "$MODROOT/index.html"; do gz "$f"; done
+  swrev "/modern/index.html" "$MODROOT/index.html"
+  swrev "/modern/clients/default/config.json" "$MOD/config.json"
+  swrev "/modern/clients/default/pwa/manifest.json" "$MOD/pwa/manifest.json"
+  swrev "/modern/clients/default/assets/favicon.ico" "$MOD/assets/favicon.ico"
+  gz "$SW"
+  echo "modern: revisoes no sw.js ->"
+  grep -oE '\{url:"/modern/(index\.html|clients/default/(config\.json|pwa/manifest\.json|assets/favicon\.ico))",revision:"[0-9a-f]+"\}' "$SW"
+
+  # cron diario do favicon do Modern UI
+  cat > /etc/cron.d/hostlp-webmail-favicon <<'CRON'
+# Sincroniza o favicon do Modern UI com site.hostlp.com.br (sem reiniciar servicos)
+15 4 * * * root /Scripts_Zimbra/_Personalizar_Webmail --favicon >/dev/null 2>&1
+CRON
+  chmod 644 /etc/cron.d/hostlp-webmail-favicon
+  echo "cron: /etc/cron.d/hostlp-webmail-favicon ok"
+}
+
+if [ "${1:-}" = "--favicon" ]; then sync_favicon; exit 0; fi
+
+BK=/root/backup-webmail-$(date +%F-%H%M%S); mkdir -p "$BK"
+echo "== $(hostname -f)"
+
+if [ "${1:-}" = "--modern" ]; then aplicar_modern; echo "backup em: $BK"; exit 0; fi
+
+# ===================== TELA DE LOGIN =====================
+mkdir -p "$BK/login"
+# 1) icones do olho (locais, na skin) e limpeza de copias locais antigas de fundo/favicon
+cat > /tmp/hostlp_eye.svg <<'SVG'
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#33415c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+SVG
+cat > /tmp/hostlp_eye_off.svg <<'SVG'
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#33415c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+SVG
+install -o zimbra -g zimbra -m 644 /tmp/hostlp_eye.svg "$SKIN/img/hostlp_eye.svg"
+install -o zimbra -g zimbra -m 644 /tmp/hostlp_eye_off.svg "$SKIN/img/hostlp_eye_off.svg"
+rm -f /tmp/hostlp_eye.svg /tmp/hostlp_eye_off.svg "$SKIN/img/hostlp_login_bg.png" "$SKIN/img/hostlp_favicon.ico"
+echo "login: icones do olho ok"
+
+# 2) CSS do login -- remove o bloco antigo pelo TEXTO entre marcadores e reanexa
+cp -a "$SKIN/skin.css" "$BK/login/"
+read A0 F0 < <(chaves "$SKIN/skin.css")
+if [ "$A0" != "$F0" ] && ! grep -q 'HOSTLP-LOGIN-INICIO' "$SKIN/skin.css"; then
+  echo "ERRO: skin.css original ja desequilibrado ({=$A0 }=$F0). CSS do login nao alterado."
+else
+  perl -0pi -e 's{\n?/\* HOSTLP-LOGIN-INICIO \*/.*?/\* HOSTLP-LOGIN-FIM \*/\n?}{\n}s' "$SKIN/skin.css"
+  [ -n "$(tail -c1 "$SKIN/skin.css")" ] && echo >> "$SKIN/skin.css"
+  cat >> "$SKIN/skin.css" <<CSS
+/* HOSTLP-LOGIN-INICIO */
+html, body, #modifiedLogin.LoginScreen {
+  background: #0b2a6b url('${IMG_URL}') center center / cover no-repeat fixed !important;
+}
+CSS
+  cat >> "$SKIN/skin.css" <<'CSS'
+#modifiedLogin.LoginScreen .modernContentBox {
+  margin: 0 0 0 5vw !important;
+  width: 400px !important; max-width: 90vw !important; box-sizing: border-box !important;
+  padding: 36px 40px 32px !important; border-radius: 14px !important;
+  box-shadow: 0 20px 50px rgba(0,0,0,.35) !important;
+  background:
+    linear-gradient(90deg, #0b2a6b, #2cb4dc) top / 100% 6px no-repeat,
+    linear-gradient(90deg, #0b2a6b, #2cb4dc) bottom / 100% 6px no-repeat,
+    #ffffff !important;
+}
+#modifiedLogin .signIn, #modifiedLogin .Footer, #ZLoginNotice, #modifiedLogin .decor1, #modifiedLogin .decor2 { display: none !important; }
+#modifiedLogin .modernContentBox, #modifiedLogin .modernContentBox label, #modifiedLogin .modernContentBox td,
+#modifiedLogin .modernContentBox span, #modifiedLogin .modernContentBox div { color: #33415c !important; }
+#modifiedLogin .zLoginFieldInput {
+  border: 0 !important; border-bottom: 1px solid #8a94a6 !important; border-radius: 0 !important;
+  background: transparent !important; box-shadow: none !important; color: #1d2433 !important;
+}
+#modifiedLogin .zLoginFieldInput:focus { border-bottom-color: #2cb4dc !important; outline: none !important; }
+#modifiedLogin #loginButton, #modifiedLogin .loginButton {
+  background: #0b2a6b !important; color: #ffffff !important; border: 0 !important; border-radius: 6px !important;
+  font-weight: 600 !important; box-shadow: 0 6px 14px rgba(11,42,107,.35) !important;
+}
+#modifiedLogin #loginButton:hover { background: #0e3a8f !important; }
+#modifiedLogin a, #ZLoginForgotPassword { color: #2cb4dc !important; }
+#modifiedLogin .passwordWrapper span[toggle] {
+  font-size: 0 !important; color: transparent !important;
+  width: 22px !important; height: 22px !important; cursor: pointer !important;
+  background-repeat: no-repeat !important; background-position: center !important; background-size: 20px 20px !important;
+  opacity: .75 !important;
+}
+#modifiedLogin .passwordWrapper span[toggle]:hover { opacity: 1 !important; }
+#modifiedLogin .passwordWrapper span[toggle][id$="howSpan"] { background-image: url('/skins/zextras/img/hostlp_eye.svg') !important; }
+#modifiedLogin .passwordWrapper span[toggle][id$="ideSpan"] { background-image: url('/skins/zextras/img/hostlp_eye_off.svg') !important; }
+#modifiedLogin select {
+  color: #1d2433 !important; background-color: #ffffff !important;
+  border: 1px solid #b7c0cf !important; border-radius: 6px !important;
+  padding: 6px 10px !important; min-height: 34px !important; cursor: pointer !important;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.06) !important;
+  transition: border-color .15s, box-shadow .15s !important;
+}
+#modifiedLogin select:hover { border-color: #2cb4dc !important; }
+#modifiedLogin select:focus { border-color: #2cb4dc !important; box-shadow: 0 0 0 3px rgba(44,180,220,.25) !important; outline: none !important; }
+@media (max-width: 700px) {
+  #modifiedLogin.LoginScreen .modernContentBox { margin: 0 auto !important; }
+}
+/* HOSTLP-LOGIN-FIM */
+CSS
+  read A1 F1 < <(chaves "$SKIN/skin.css")
+  if [ "$A1" != "$F1" ]; then
+    \cp -a "$BK/login/skin.css" "$SKIN/skin.css"
+    echo "ERRO: chaves do login desequilibradas ({=$A1 }=$F1). skin.css restaurado; nada reiniciado."; exit 1
+  fi
+  echo "login: css ok ({=$A1 }=$F1)"
+fi
+
+# 3) textos do login (sobrescritos a cada atualizacao)
+for f in "$MSG/ZmMsg_pt_BR.properties" "$MSG/ZmMsg_pt.properties"; do
+  [ -f "$f" ] || continue
+  cp -a "$f" "$BK/login/"
+  sed -i -e "s|^zimbraLoginTitle *=.*|zimbraLoginTitle = ${TITULO}|" -e "s|^login *=.*|login = ${BOTAO}|" "$f"
+done
+[ -f "$MSG/ZmMsg.properties" ] && cp -a "$MSG/ZmMsg.properties" "$BK/login/" && sed -i "s|^zimbraLoginTitle *=.*|zimbraLoginTitle = ${TITULO}|" "$MSG/ZmMsg.properties"
+echo "login: textos ->"; grep -hE '^(zimbraLoginTitle|login) *=' "$MSG/ZmMsg_pt_BR.properties"
+
+# 4) favicon do login ONLINE (LDAP -- sobrevive a atualizacoes)
+su - zimbra -c "zmprov mcf zimbraSkinFavicon '${ICO_URL}'; zmprov gcf zimbraSkinFavicon" < /dev/null
+
+# ===================== MODERN UI =====================
+aplicar_modern
+
+# ===================== APLICAR =====================
+su - zimbra -c "zmprov fc config; zmmailboxdctl restart" < /dev/null
+echo "backup em: $BK"
