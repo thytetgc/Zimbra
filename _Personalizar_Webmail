@@ -391,8 +391,19 @@ CSS
 #modifiedLogin .zLoginFieldInput {
   border: 0 !important; border-bottom: 1px solid #8a94a6 !important; border-radius: 0 !important;
   background: transparent !important; box-shadow: none !important; color: #1d2433 !important;
+  transition: border-bottom-color .15s ease, border-bottom-width .15s ease !important;
 }
-#modifiedLogin .zLoginFieldInput:focus { border-bottom-color: #2cb4dc !important; outline: none !important; }
+#modifiedLogin .zLoginFieldInput:focus, #modifiedLogin .zLoginFieldInput:focus-visible {
+  border-bottom: 2px solid #2cb4dc !important; outline: none !important; box-shadow: none !important;
+}
+#modifiedLogin .passwordWrapper, #modifiedLogin .passwordWrapper:focus-within,
+#modifiedLogin .loginSection, #modifiedLogin .loginSection:focus-within,
+#modifiedLogin .form td, #modifiedLogin .form td:focus-within {
+  outline: none !important; box-shadow: none !important; border-color: transparent !important; background: transparent !important;
+}
+#modifiedLogin input:-webkit-autofill, #modifiedLogin input:-webkit-autofill:hover, #modifiedLogin input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important; -webkit-text-fill-color: #1d2433 !important;
+}
 #modifiedLogin #loginButton, #modifiedLogin .loginButton {
   background: #0b2a6b !important; color: #ffffff !important; border: 0 !important; border-radius: 6px !important;
   font-weight: 600 !important; box-shadow: 0 6px 14px rgba(11,42,107,.35) !important;
