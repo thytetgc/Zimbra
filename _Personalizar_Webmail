@@ -408,6 +408,18 @@ CSS
 #modifiedLogin .passwordWrapper span[toggle]:hover { opacity: 1 !important; }
 #modifiedLogin .passwordWrapper span[toggle][id$="howSpan"] { background-image: url('/skins/zextras/img/hostlp_eye.svg') !important; }
 #modifiedLogin .passwordWrapper span[toggle][id$="ideSpan"] { background-image: url('/skins/zextras/img/hostlp_eye_off.svg') !important; }
+#modifiedLogin input#remember { cursor: pointer !important; }
+#modifiedLogin input#remember:after {
+  background-color: #ffffff !important; background-image: none !important;
+  border: 1.5px solid #8a94a6 !important; border-radius: 4px !important; box-sizing: border-box !important;
+  transition: background-color .15s ease, border-color .15s ease !important;
+}
+#modifiedLogin input#remember:hover:after { border-color: #2cb4dc !important; }
+#modifiedLogin input#remember:checked:after {
+  background-color: #0b2a6b !important; border-color: #0b2a6b !important;
+  background-image: url('/skins/zextras/img/checkmark-square-outline-white.svg') !important;
+  background-repeat: no-repeat !important; background-position: center !important; background-size: contain !important;
+}
 #modifiedLogin select {
   color: #1d2433 !important; background-color: #ffffff !important;
   border: 1px solid #b7c0cf !important; border-radius: 6px !important;
