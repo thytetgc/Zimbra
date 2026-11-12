@@ -1,8 +1,10 @@
 #!/bin/bash
-# _Personalizar_Webmail -- tela de login + Modern UI HostLP (idempotente). Rodar como root apos cada atualizacao do Zimbra.
-# Uso: _Personalizar_Webmail            -> aplica tudo (login + Modern UI) e reinicia o mailboxd
+# _Personalizar_Webmail -- tela de login + interface classica (Zextras) + Modern UI HostLP (idempotente).
+# Rodar como root apos cada atualizacao do Zimbra.
+# Uso: _Personalizar_Webmail            -> aplica tudo (login + classica + Modern UI) e reinicia o mailboxd
 #      _Personalizar_Webmail --modern   -> aplica so o Modern UI (sem restart; arquivos estaticos)
-#      _Personalizar_Webmail --favicon  -> so sincroniza o favicon do Modern UI com o site (cron diario, sem restart)
+#      _Personalizar_Webmail --classic  -> aplica so a classica (cores, icone, CSS) com fc skin (sem restart)
+#      _Personalizar_Webmail --favicon  -> so sincroniza os favicons (Modern e classica) com o site (cron diario, sem restart)
 # Fundo do login e favicon do login ficam ONLINE (site.hostlp.com.br).
 set -u
 IMG_URL="https://site.hostlp.com.br/imagens/zimbra/zimbra_webmail.png"
@@ -15,6 +17,7 @@ MSG=$WEB/WEB-INF/classes/messages
 MODROOT=$WEB/modern
 MOD=$MODROOT/clients/default
 SW=$MODROOT/sw.js
+CLASSIC_ICO=$WEB/img/logo/favicon.ico
 
 chaves() { echo "$(tr -cd '{' < "$1" | wc -c) $(tr -cd '}' < "$1" | wc -c)"; }
 gz() { gzip -9 -k -f "$1"; chown zimbra:zimbra "$1.gz"; rm -f "$1.br"; }
@@ -35,10 +38,115 @@ sync_favicon() {
     else
       echo "favicon modern: sem mudanca"
     fi
+    if ! cmp -s "$tmp" "$CLASSIC_ICO"; then
+      install -o zimbra -g zimbra -m 644 "$tmp" "$CLASSIC_ICO"
+      [ -f "$CLASSIC_ICO.gz" ] && gz "$CLASSIC_ICO"
+      echo "favicon classico: atualizado"
+    else
+      echo "favicon classico: sem mudanca"
+    fi
   else
-    echo "favicon modern: FALHA no download (mantido o atual)"
+    echo "favicon: FALHA no download (mantidos os atuais)"
   fi
   rm -f "$tmp"
+}
+
+aplicar_classic() {
+  mkdir -p "$BK/classic"
+  cp -a "$SKIN/skin.properties" "$SKIN/zextras.properties" "$SKIN/skin.css" "$BK/classic/"
+
+  # cores-base da skin Zextras (todo o restante deriva delas)
+  sed -i -E \
+    -e 's|^(\s*PrimaryBrandingColor\s*=\s*).*|\1#0b2a6b|' \
+    -e 's|^(\s*SecondaryBrandingColor\s*=\s*).*|\1#5d79ad|' \
+    -e 's|^(\s*SelC\s*=\s*).*|\1#dff1f8|' \
+    -e 's|^(\s*TxtC\s*=\s*).*|\1#33415c|' "$SKIN/skin.properties"
+  # icone de atualizar escuro (o original e branco, feito para o topo azul)
+  sed -i -E 's|^(RefreshIcon\s*=\s*@image\(SkinImgDir,\s*)refresh-white\.svg|\1refresh.svg|' "$SKIN/zextras.properties"
+  echo "classic: cores ->"; grep -E '^\s*(PrimaryBrandingColor|SecondaryBrandingColor|SelC|TxtC)\s*=' "$SKIN/skin.properties" | tr -s ' '
+  echo "classic: refresh -> $(grep -E '^RefreshIcon' "$SKIN/zextras.properties" | grep -oE 'refresh[a-z-]*\.svg')"
+
+  # CSS da classica (bloco entre marcadores no skin.css)
+  read A3 F3 < <(chaves "$SKIN/skin.css")
+  if [ "$A3" != "$F3" ] && ! grep -q 'HOSTLP-CLASSIC-INICIO' "$SKIN/skin.css"; then
+    echo "ERRO: skin.css desequilibrado antes da classica ({=$A3 }=$F3). CSS da classica nao alterado."; return
+  fi
+  perl -0pi -e 's{\n?/\* HOSTLP-CLASSIC-INICIO \*/.*?/\* HOSTLP-CLASSIC-FIM \*/\n?}{\n}s' "$SKIN/skin.css"
+  [ -n "$(tail -c1 "$SKIN/skin.css")" ] && echo >> "$SKIN/skin.css"
+  cat >> "$SKIN/skin.css" <<'CSS'
+/* HOSTLP-CLASSIC-INICIO */
+@keyframes hlpMenuC { from { opacity: 0; transform: translateY(-4px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.SplashScreen { background: #f4f7fb !important; }
+.SplashScreen .Footer, #splashScreenSwitchContainer, .SplashScreen .decor1, .SplashScreen .decor2 { display: none !important; }
+.SplashScreen #ZLoginAppName { color: #33415c !important; }
+.SplashScreen .loader, .SplashScreen .loader:before, .SplashScreen .loader:after { background-color: #2cb4dc !important; border-color: #2cb4dc !important; }
+#skin_spacing_top_row, #skin_spacing_top_row > *, #skin_container_logo, #skin_spacing_logo, #skin_container_app_chooser, #skin_spacing_app_chooser,
+#skin_container_search, #skin_spacing_search, #skin_container_username, #skin_container_global_buttons, #skin_spacing_global_buttons,
+#skin_container_refresh, #skin_container_quota, #skin_spacing_top_row .DwtLinkButtonDropDownArrowRow, .ZmAppChooser { background-color: #ffffff !important; }
+#skin_spacing_top_row { border-bottom: 3px solid transparent !important; border-image: linear-gradient(90deg, #0b2a6b, #2cb4dc) 1 !important; }
+#skin_container_username, #skin_container_username * { color: #33415c !important; }
+#skin_spacing_top_row .svg-icon, #skin_container_search .svg-icon { fill: #0b2a6b !important; }
+#skin_spacing_search .search-trigger, #skin_dropMenu .DwtLinkButtonDropDownArrowTd {
+  filter: brightness(.3) !important; opacity: 1 !important; transition: filter .2s ease, transform .2s ease !important; }
+#CHECK_MAIL_left_icon, #skin_spacing_search .search-trigger { transition: transform .2s ease !important; }
+#CHECK_MAIL_left_icon:hover, #skin_spacing_search .search-trigger:hover { transform: scale(1.12); }
+.ZmAppChooser .ZAppTab, #skin_container_app_chooser .ZAppTab {
+  border-radius: 10px !important; margin: 6px 3px !important; border: 0 !important;
+  transition: background-color .2s ease, color .2s ease, box-shadow .2s ease, transform .2s ease !important; }
+.ZmAppChooser .ZAppTab .ZWidgetTitle { color: #0b2a6b !important; font-weight: 600 !important; }
+.ZmAppChooser .ZAppTab:not(.ZSelected) .ZLeftIcon { filter: brightness(.3) !important; transition: filter .2s ease !important; }
+.ZmAppChooser .ZAppTab:hover { background-color: #eef3f9 !important; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(11,42,107,.12) !important; }
+.ZmAppChooser .ZAppTab.ZSelected {
+  background: linear-gradient(135deg, #0b2a6b, #1d5fae) !important; box-shadow: 0 4px 12px rgba(11,42,107,.22) !important; transform: none; }
+.ZmAppChooser .ZAppTab.ZSelected .ZWidgetTitle, .ZmAppChooser .ZAppTab.ZSelected * { color: #ffffff !important; }
+.ZmAppChooser .ZAppTab.ZSelected .ZLeftIcon { filter: none !important; }
+#zb__NEW_MENU, #zb__NEW_MENU .ZWidgetTable, #zb__NEW_MENU .ZButtonBorder {
+  background: linear-gradient(135deg, #0b2a6b, #1d5fae) !important; border: 0 !important; border-radius: 10px !important; }
+#zb__NEW_MENU { box-shadow: 0 4px 12px rgba(11,42,107,.22) !important; transition: transform .2s ease, box-shadow .2s ease !important; }
+#zb__NEW_MENU:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(11,42,107,.30) !important; }
+#zb__NEW_MENU:active { transform: scale(.97); }
+#zb__NEW_MENU .ZWidgetTitle, #zb__NEW_MENU * { color: #ffffff !important; font-weight: 600 !important; opacity: 1 !important; }
+.ZmOverview, .ZmOverviewContainer, .OverviewTree, .OverviewTree .DwtTreeItem, #skin_container_tree, #skin_spacing_tree, #skin_container_tree_footer {
+  background-color: #e8eef6 !important; }
+.overviewHeader, .overviewHeader TD { background-color: transparent !important; border-bottom: 0 !important; }
+.overviewHeader-Text, .overviewHeader .overviewHeader-Text { color: #0b2a6b !important; font-weight: 700 !important; font-size: 1rem !important; }
+.OverviewTree .DwtTreeItem, .OverviewTree .DwtTreeItem-selected, .OverviewTree .DwtTreeItem-selected-focused, .OverviewTree .DwtTreeItem-actioned {
+  border-radius: 8px !important; margin: 1px 8px !important;
+  transition: background-color .2s ease, box-shadow .2s ease, transform .2s ease !important; }
+.OverviewTree .DwtTreeItem:hover { background-color: rgba(255,255,255,.75) !important; transform: translateX(2px); }
+.OverviewTree .DwtTreeItem-selected, .OverviewTree .DwtTreeItem-selected:hover,
+.OverviewTree .DwtTreeItem-selected-focused, .OverviewTree .DwtTreeItem-selected-focused:hover, .OverviewTree .DwtTreeItem-actioned {
+  background-color: #ffffff !important; color: #0b2a6b !important; font-weight: 600 !important; transform: none;
+  border-color: transparent !important; box-shadow: inset 3px 0 0 #2cb4dc, 0 1px 4px rgba(11,42,107,.10) !important; }
+.OverviewTree .DwtTreeItem-selected TD, .OverviewTree .DwtTreeItem-selected-focused TD, .OverviewTree .DwtTreeItem-actioned TD {
+  background-color: transparent !important; color: #0b2a6b !important; }
+.ZToolbar, #skin_container_app_top_toolbar, #skin_spacing_app_top_toolbar { background-color: #f4f7fb !important; }
+.ZToolbar .ZToolbarButton .ZWidgetTitle { color: #5a6a85 !important; }
+.ZToolbarButton .ZToolbarButtonBorder {
+  border-radius: 8px !important; transition: background-color .15s ease, transform .15s ease !important; }
+.ZToolbarButton.ZHover .ZToolbarButtonBorder { background-color: #e3ecf8 !important; transform: translateY(-1px); }
+.ZToolbarButton.ZActive .ZToolbarButtonBorder { transform: scale(.96); }
+.DwtListView-ColHeader { background-color: #eaf0f7 !important; border-bottom: 1px solid #dfe6ef !important; }
+.DwtListView-Column, .DwtListView-ColumnHover { background-color: #eaf0f7 !important; border-bottom: 1px solid #dfe6ef !important; }
+.DwtListView-Column TD, .DwtListView-ColumnHover TD { color: #0b2a6b !important; font-weight: 600 !important; }
+TD.DwtListView-ColumnActive { background-color: #dfe8f3 !important; }
+.DwtListView-ColumnHover { background-color: #e3ecf8 !important; }
+.DwtListView, .DwtListView-Rows { background-color: #f9fbfd !important; }
+.DwtListView .Row { height: 32px !important; border-bottom: 1px solid #e6ebf2 !important; background-color: transparent;
+  transition: background-color .2s ease, box-shadow .25s ease !important; }
+.DwtListView .Row:hover { background-color: #eef6fb !important; }
+.DwtListView .Row-selected, .DwtListView .Row-selected:hover { background-color: #dff1f8 !important; box-shadow: inset 3px 0 0 #2cb4dc !important; }
+.DwtMenu { animation: hlpMenuC .18s ease-out !important; border-radius: 10px !important; box-shadow: 0 10px 30px rgba(11,42,107,.18) !important; overflow: hidden; }
+.DwtMenu .ZMenuItem { transition: background-color .15s ease, transform .15s ease !important; }
+.DwtMenu .ZMenuItem.ZHover { transform: translateX(3px); }
+/* HOSTLP-CLASSIC-FIM */
+CSS
+  read A4 F4 < <(chaves "$SKIN/skin.css")
+  if [ "$A4" != "$F4" ]; then
+    \cp -a "$BK/classic/skin.css" "$SKIN/skin.css"
+    echo "ERRO: chaves da classica desequilibradas ({=$A4 }=$F4). skin.css restaurado; nada reiniciado."; exit 1
+  fi
+  echo "classic: css ok ({=$A4 }=$F4)"
 }
 
 aplicar_modern() {
@@ -319,7 +427,7 @@ JS
   perl -0pi -e "s{</head>}{<link id=\"hostlp-css\" href=\"/modern/hostlp.css?v=${VC}\" rel=\"stylesheet\"><script id=\"hostlp-js\" src=\"/modern/hostlp.js?v=${VJ}\" defer></script></head>}" "$MODROOT/index.html"
   echo "modern: index.html ->"; grep -oE '<(link|script) id="hostlp-(css|js)"[^>]*>' "$MODROOT/index.html"
 
-  # favicon, recompactacao e revisoes do service worker
+  # favicons, recompactacao e revisoes do service worker
   sync_favicon
   for f in "$MOD/config.json" "$MOD/pwa/manifest.json" "$MODROOT/index.html"; do gz "$f"; done
   swrev "/modern/index.html" "$MODROOT/index.html"
@@ -330,9 +438,9 @@ JS
   echo "modern: revisoes no sw.js ->"
   grep -oE '\{url:"/modern/(index\.html|clients/default/(config\.json|pwa/manifest\.json|assets/favicon\.ico))",revision:"[0-9a-f]+"\}' "$SW"
 
-  # cron diario do favicon do Modern UI
+  # cron diario dos favicons (Modern e classica)
   cat > /etc/cron.d/hostlp-webmail-favicon <<'CRON'
-# Sincroniza o favicon do Modern UI com site.hostlp.com.br (sem reiniciar servicos)
+# Sincroniza os favicons (Modern e classica) com site.hostlp.com.br (sem reiniciar servicos)
 15 4 * * * root /Scripts_Zimbra/_Personalizar_Webmail --favicon >/dev/null 2>&1
 CRON
   chmod 644 /etc/cron.d/hostlp-webmail-favicon
@@ -345,6 +453,7 @@ BK=/root/backup-webmail-$(date +%F-%H%M%S); mkdir -p "$BK"
 echo "== $(hostname -f)"
 
 if [ "${1:-}" = "--modern" ]; then aplicar_modern; echo "backup em: $BK"; exit 0; fi
+if [ "${1:-}" = "--classic" ]; then aplicar_classic; su - zimbra -c "zmprov fc skin" < /dev/null; echo "backup em: $BK"; exit 0; fi
 
 # ===================== TELA DE LOGIN =====================
 mkdir -p "$BK/login"
@@ -458,21 +567,29 @@ CSS
   echo "login: css ok ({=$A1 }=$F1)"
 fi
 
-# 3) textos do login (sobrescritos a cada atualizacao)
-for f in "$MSG/ZmMsg_pt_BR.properties" "$MSG/ZmMsg_pt.properties"; do
+# 3) textos do login e da classica (sobrescritos a cada atualizacao)
+for f in "$MSG/ZmMsg_pt_BR.properties" "$MSG/ZmMsg_pt.properties" "$MSG/ZmMsg.properties"; do
   [ -f "$f" ] || continue
   cp -a "$f" "$BK/login/"
-  sed -i -e "s|^zimbraLoginTitle *=.*|zimbraLoginTitle = ${TITULO}|" -e "s|^login *=.*|login = ${BOTAO}|" "$f"
+  sed -i -e "s|^zimbraLoginTitle *=.*|zimbraLoginTitle = ${TITULO}|" \
+         -e "s|^zimbraTitle *=.*|zimbraTitle = ${TITULO}|" \
+         -e "s|^zimbraLabel *=.*|zimbraLabel = ${TITULO}:|" \
+         -e "s|^favIconUrl *=.*|favIconUrl = ${ICO_URL}|" "$f"
 done
-[ -f "$MSG/ZmMsg.properties" ] && cp -a "$MSG/ZmMsg.properties" "$BK/login/" && sed -i "s|^zimbraLoginTitle *=.*|zimbraLoginTitle = ${TITULO}|" "$MSG/ZmMsg.properties"
-echo "login: textos ->"; grep -hE '^(zimbraLoginTitle|login) *=' "$MSG/ZmMsg_pt_BR.properties"
+for f in "$MSG/ZmMsg_pt_BR.properties" "$MSG/ZmMsg_pt.properties"; do
+  [ -f "$f" ] && sed -i "s|^login *=.*|login = ${BOTAO}|" "$f"
+done
+echo "textos ->"; grep -hE '^(zimbraLoginTitle|zimbraTitle|zimbraLabel|favIconUrl|login) *=' "$MSG/ZmMsg_pt_BR.properties"
 
 # 4) favicon do login ONLINE (LDAP -- sobrevive a atualizacoes)
 su - zimbra -c "zmprov mcf zimbraSkinFavicon '${ICO_URL}'; zmprov gcf zimbraSkinFavicon" < /dev/null
+
+# ===================== INTERFACE CLASSICA (ZEXTRAS) =====================
+aplicar_classic
 
 # ===================== MODERN UI =====================
 aplicar_modern
 
 # ===================== APLICAR =====================
-su - zimbra -c "zmprov fc config; zmmailboxdctl restart" < /dev/null
+su - zimbra -c "zmprov fc config; zmprov fc skin; zmmailboxdctl restart" < /dev/null
 echo "backup em: $BK"
