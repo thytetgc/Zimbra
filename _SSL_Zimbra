@@ -1,7 +1,7 @@
 #!/bin/bash
 #==============================================================================
 # _SSL_Zimbra - Certificados Let's Encrypt do Zimbra (por dominio + servidor)
-# HostLP - v1.3 (2026-11-18)
+# HostLP - v1.4 (2026-11-18)
 #
 # - acme.sh em modo webroot, servido pelo proxy nginx do Zimbra (sem parar nada)
 # - Somente dominios ATIVOS no Zimbra (zimbraDomainStatus)
@@ -40,6 +40,14 @@
 #          certificado: grava no LDAP e marca pendente; a janela das 03:30 faz
 #          um unico deploycrts + reload para todos (deploycrts leva ~5 s/dominio).
 #          --emitir <dominio> continua aplicando na hora.
+#   v1.4 - Correcoes do incidente de 18/11 00:16:
+#          * comandos do Zimbra rodam SEM herdar as travas do script (fd 8/9);
+#          * dominio que tem o hostname do servidor como nome virtual NAO recebe
+#            certificado de dominio (senao o SNI troca o certificado do hostname);
+#          * restart com tempo limite, nova tentativa de start e espera de ate
+#            5 min pelos servicos antes de qualquer rollback;
+#          * conferencia do servidor pelas portas 993 e 7071 (sem SNI);
+#          * remover dominio nao refaz o deploycrts de todos.
 #==============================================================================
 
 #------------------------------- CONFIGURACAO ---------------------------------
@@ -74,7 +82,7 @@ export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 log()  { local m; m="$(date '+%F %T') $*"; echo "$m" >> "$LOG"; echo "$*"; }
 die()  { log "ERRO: $*"; exit 1; }
-zm()   { su - zimbra -c "$1" < /dev/null; }
+zm()   { su - zimbra -c "$1" < /dev/null 8>&- 9>&-; }   # nunca herdar as travas do script
 
 avisa() {
     local assunto="$1" corpo="$2"
@@ -157,6 +165,13 @@ lista_dominios() {
     done
 }
 
+dominios_do_hostname() {
+    # Dominios que tem o hostname do servidor como zimbraVirtualHostname
+    zm "zmprov -l gad -v" | awk -v h="$(hostname -f)" '
+        /^# name /                 { d=$3 }
+        /^zimbraVirtualHostname: / { if ($2==h) print d }' | sort -u
+}
+
 dominio_ativo() {
     lista_dominios | grep -qxF "$1"
 }
@@ -219,14 +234,17 @@ teste_webroot() {
 
 aplicar_proxy() {
     # deploycrts + confgen + nginx -t + HUP (sem queda). Rollback do dominio rejeitado.
-    local tent=0 saida ruim pid
+    # $1 = "sem_deploy": pula o deploycrts (ex.: so remocao de dominio)
+    local tent=0 saida ruim pid modo="$1"
     while [ "$tent" -lt 5 ]; do
         tent=$((tent + 1))
-        saida=$(zm "/opt/zimbra/libexec/zmdomaincertmgr deploycrts" 2>&1)
-        if [ $? -ne 0 ] && ! echo "$saida" | grep -q "No domains returned"; then
-            log "ERRO: zmdomaincertmgr deploycrts falhou: $saida"; return 1
+        if [ "$modo" != "sem_deploy" ]; then
+            saida=$(zm "/opt/zimbra/libexec/zmdomaincertmgr deploycrts" 2>&1)
+            if [ $? -ne 0 ] && ! echo "$saida" | grep -q "No domains returned"; then
+                log "ERRO: zmdomaincertmgr deploycrts falhou: $saida"; return 1
+            fi
+            echo "$saida" >> "$LOG"
         fi
-        echo "$saida" >> "$LOG"
         zm "/opt/zimbra/libexec/zmproxyconfgen" >> "$LOG" 2>&1 \
             || { log "ERRO: zmproxyconfgen falhou"; return 1; }
         saida=$(zm "/opt/zimbra/common/sbin/nginx -t -c /opt/zimbra/conf/nginx.conf" 2>&1)
@@ -365,13 +383,36 @@ cmd_deploy_servidor() {
     log "[servidor] certificado novo PENDENTE: sera aplicado na janela 03:30 (restart do Zimbra)"
 }
 
+servicos_ok() {
+    ! zm "zmcontrol status" 2>&1 | grep -qiE "Stopped|not running"
+}
+
+reinicia_zimbra() {
+    # zmcontrol restart com tempo limite; se algum servico nao subir, novas tentativas de start.
+    # Espera ate ~5 min. Retorna 0 com todos os servicos rodando.
+    local t
+    log "[servidor] zmcontrol restart..."
+    timeout 600 su - zimbra -c "zmcontrol restart" < /dev/null >> "$LOG" 2>&1 8>&- 9>&-
+    for t in 1 2 3 4 5 6 7 8 9 10; do
+        sleep 30
+        if servicos_ok; then log "[servidor] todos os servicos rodando (apos ${t}x30s)"; return 0; fi
+        log "[servidor] servicos ainda parados (tentativa $t): zmcontrol start"
+        timeout 300 su - zimbra -c "zmcontrol start" < /dev/null >> "$LOG" 2>&1 8>&- 9>&-
+    done
+    log "[servidor] ERRO: servicos nao subiram em ~5 min"
+    return 1
+}
+
+fp_porta() {
+    # fingerprint do certificado servido na porta $1 (sem SNI)
+    echo | timeout 10 openssl s_client -connect "$IP_SRV:$1" 2>/dev/null \
+        | openssl x509 -noout -fingerprint -sha256 2>/dev/null | cut -d= -f2
+}
+
 servidor_no_ar() {
-    # 0 se todos os servicos rodam e o 443 entrega o certificado $1 (fingerprint)
-    local fp="$1" srv
-    zm "zmcontrol status" | grep -qiE "Stopped|not running" && return 1
-    srv=$(echo | timeout 10 openssl s_client -connect "$IP_SRV:443" -servername "$(hostname -f)" 2>/dev/null \
-          | openssl x509 -noout -fingerprint -sha256 2>/dev/null | cut -d= -f2)
-    [ "$srv" = "$fp" ]
+    # 0 se o certificado $1 e servido no IMAPS (nginx, bloco padrao) e no admin 7071 (mailboxd)
+    local fp="$1"
+    [ "$(fp_porta 993)" = "$fp" ] && [ "$(fp_porta 7071)" = "$fp" ]
 }
 
 cmd_aplicar_servidor() {
@@ -410,24 +451,22 @@ cmd_aplicar_servidor() {
         avisa "deploycrt falhou (backup restaurado)" "Veja $LOG"; return 1
     fi
 
-    log "[servidor] reiniciando o Zimbra (zmcontrol restart)..."
-    zm "zmcontrol restart" >> "$LOG" 2>&1
-    sleep 20
-    zm "zmproxyctl start" >> "$LOG" 2>&1
-    if servidor_no_ar "$fpn"; then
+    log "[servidor] reiniciando o Zimbra para aplicar o certificado..."
+    if reinicia_zimbra && servidor_no_ar "$fpn"; then
         rm -f "$SRV_DIR/pendente" "$STAGE_SRV"/*.pem
         log "[servidor] certificado novo APLICADO (vence: $(openssl x509 -enddate -noout -in "$SRV_DIR/cert.pem" | cut -d= -f2))"
         avisa "certificado do servidor renovado" "Aplicado com sucesso em $(date '+%F %T')."
         return 0
     fi
 
-    log "[servidor] ERRO apos o restart (servicos parados ou certificado nao servido) - ROLLBACK"
+    log "[servidor] ERRO: certificado novo nao confirmado (993=$(fp_porta 993) 7071=$(fp_porta 7071)) - ROLLBACK"
     cp -a "$bkp/commercial.key" "$COMMERCIAL/commercial.key"
     zm "/opt/zimbra/bin/zmcertmgr deploycrt comm $bkp/commercial.crt $bkp/commercial_ca.crt" >> "$LOG" 2>&1
-    zm "zmcontrol restart" >> "$LOG" 2>&1
-    sleep 20
-    zm "zmproxyctl start" >> "$LOG" 2>&1
-    avisa "ROLLBACK do certificado do servidor" "O certificado novo falhou apos o restart; o anterior foi restaurado. Veja $LOG"
+    if reinicia_zimbra; then
+        avisa "ROLLBACK do certificado do servidor" "O certificado novo nao foi confirmado; o anterior foi restaurado e os servicos estao no ar. Veja $LOG"
+    else
+        avisa "CRITICO: Zimbra com servicos parados apos rollback" "Rode: su - zimbra -c 'zmcontrol start'. Veja $LOG"
+    fi
     return 1
 }
 
@@ -509,6 +548,9 @@ cmd_simular() {
     printf "%-34s %-38s %s\n" "-------" "------------------------" "------------------"
     for d in ${alvo:-$(lista_dominios)}; do
         tot=$((tot + 1)); ok=""; exc=""
+        if echo "$DOMS_HOSTNAME" | grep -qxF "$d"; then
+            printf "%-34s %-38s %s\n" "$d" "-" "contem o hostname (usa o certificado do servidor)"; continue
+        fi
         caa=$(checa_caa "$d")
         if [ "$caa" != "OK" ]; then
             printf "%-34s %-38s %s\n" "$d" "-" "CAA nao autoriza Let's Encrypt"; continue
@@ -527,6 +569,10 @@ cmd_simular() {
 emitir_dominio() {
     # Retorno: 0 = ok (emitido ou ja valido) | 1 = falha | 3 = pulado (DNS/CAA)
     local d="$1" nomes="" n p res principal args="" rc caa ant
+    if echo "$DOMS_HOSTNAME" | grep -qxF "$d"; then
+        log "[$d] PULADO: tem o hostname $(hostname -f) como nome virtual (fica com o certificado do servidor)"
+        return 3
+    fi
     caa=$(checa_caa "$d")
     [ "$caa" = "OK" ] || { log "[$d] PULADO: CAA nao autoriza Let's Encrypt"; return 3; }
     for p in $PREFIXOS; do
@@ -644,7 +690,7 @@ cmd_emitir_todos() {
     for dir in "$BASE"/*/; do
         d=$(basename "$dir")
         [ "$d" = "_servidor" ] && continue
-        echo "$ATIVOS" | grep -qxF "$d" && continue
+        if echo "$ATIVOS" | grep -qxF "$d" && ! echo "$DOMS_HOSTNAME" | grep -qxF "$d"; then continue; fi
         remover_dominio "$d"; rem=$((rem + 1))
     done
     aplicar_proxy && rm -f "$PROXY_PENDENTE"
@@ -701,7 +747,7 @@ cmd_remover() {
     [ -n "$d" ] || die "informe o dominio: --remover <dominio>"
     trava
     remover_dominio "$d"
-    aplicar_proxy
+    aplicar_proxy sem_deploy
 }
 
 menu() {
@@ -740,6 +786,7 @@ case "$1" in
 esac
 
 IP_SRV=$(ip_servidor) || die "nao foi possivel descobrir o IP publico de $(hostname -f) via DNS"
+case "$1" in --simular|--emitir|--emitir-todos|"") DOMS_HOSTNAME=$(dominios_do_hostname) ;; esac
 
 case "$1" in
     --instalar)     cmd_instalar ;;
