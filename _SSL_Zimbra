@@ -1,7 +1,7 @@
 #!/bin/bash
 #==============================================================================
 # _SSL_Zimbra - Certificados Let's Encrypt do Zimbra (por dominio + servidor)
-# HostLP - v1.5 (2026-11-18)
+# HostLP - v1.6 (2026-11-18)
 #
 # - acme.sh em modo webroot, servido pelo proxy nginx do Zimbra (sem parar nada)
 # - Somente dominios ATIVOS no Zimbra (zimbraDomainStatus)
@@ -54,6 +54,11 @@
 #          dedicado: clientes configurados com imap./pop./smtp. nas portas
 #          993/995/465/587 continuam sem alerta). Acima de 100: so mail.<dominio>.
 #          --simular mostra tambem os nomes do certificado do servidor.
+#   v1.6 - Servidor DEDICADO (certificado do servidor com todos os prefixos):
+#          NAO emite certificado de dominio e remove os existentes. O nginx de
+#          e-mail (993/995) nao escolhe certificado por SNI e entregava o do
+#          dominio (sem o hostname), o que fazia a conferencia das 03:30 falhar.
+#          Com um so certificado (o do servidor) todas as portas ficam iguais.
 #==============================================================================
 
 #------------------------------- CONFIGURACAO ---------------------------------
@@ -360,7 +365,7 @@ emitir_servidor() {
     hn=$(hostname -f)
     res=$(checa_nome "$hn")
     [ "$res" = "OK" ] || { log "[servidor] FALHA: $hn nao aponta para $IP_SRV ($res)"; return 1; }
-    saida=$(nomes_servidor); modo=$(echo "$saida" | sed -n 1p); nomes=$(echo "$saida" | sed -n 2p)
+    saida=${SRV_INFO:-$(nomes_servidor)}; modo=$(echo "$saida" | sed -n 1p); nomes=$(echo "$saida" | sed -n 2p)
     qtd=$(echo $nomes | wc -w)
     [ "$modo" = "mail" ] && log "[servidor] mais de $MAX_NOMES nomes validos: entram somente mail.<dominio>"
     [ "$qtd" -ge "$MAX_NOMES" ] && log "[servidor] AVISO: limite de $MAX_NOMES nomes atingido"
@@ -590,6 +595,8 @@ cmd_simular() {
     printf "Certificado do SERVIDOR (993/995/465/587/7071) - %s:\n  %s\n\n" \
         "$([ "$(echo "$srv" | sed -n 1p)" = "todos" ] && echo "todos os prefixos" || echo "somente mail. (mais de $MAX_NOMES nomes)")" \
         "$(echo "$srv" | sed -n 2p)"
+    [ "$(echo "$srv" | sed -n 1p)" = "todos" ] && \
+        printf "Servidor DEDICADO: certificados de dominio NAO serao emitidos (o do servidor cobre todos os nomes).\n\n"
 }
 
 emitir_dominio() {
@@ -680,6 +687,8 @@ cmd_emitir() {
     trava
     dominio_ativo "$d" || die "$d nao e um dominio ATIVO neste Zimbra"
     [ -x "$ACME" ] || die "acme.sh nao instalado. Rode: $SCRIPT --instalar"
+    [ "$(nomes_servidor | sed -n 1p)" = "todos" ] \
+        && die "servidor DEDICADO: $d ja e coberto pelo certificado do servidor (use --emitir-servidor)"
     trap cmd_fechar80 EXIT
     garante_acme_nginx
     teste_webroot || die "teste ACME local falhou (porta 80 nao serve o desafio)"
@@ -700,6 +709,20 @@ cmd_emitir_todos() {
     log "===== emitir-todos ====="
     ATIVOS=$(lista_dominios)
     [ -n "$ATIVOS" ] || die "nenhum dominio ativo retornado pelo Zimbra (LDAP fora?) - abortado"
+    SRV_INFO=$(nomes_servidor)
+    if [ "$(echo "$SRV_INFO" | sed -n 1p)" = "todos" ]; then
+        local dd dirr remd=0
+        log "servidor DEDICADO: o certificado do servidor cobre todos os nomes validos; sem certificados de dominio"
+        for dirr in "$BASE"/*/; do
+            [ -d "$dirr" ] || continue
+            dd=$(basename "$dirr"); [ "$dd" = "_servidor" ] && continue
+            remover_dominio "$dd"; remd=$((remd + 1))
+        done
+        [ "$remd" -gt 0 ] && { aplicar_proxy sem_deploy && rm -f "$PROXY_PENDENTE"; }
+        emitir_servidor || { avisa "falha ao emitir o certificado do servidor" "Veja $LOG"; log "RESUMO: dedicado | dominios removidos=$remd | servidor: FALHA"; return 0; }
+        log "RESUMO: dedicado | dominios removidos=$remd | servidor: ok"
+        return 0
+    fi
     export HOSTLP_SSL_LOTE=1
     for d in $ATIVOS; do
         emitir_dominio "$d"
