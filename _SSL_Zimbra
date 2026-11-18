@@ -1,0 +1,738 @@
+#!/bin/bash
+#==============================================================================
+# _SSL_Zimbra - Certificados Let's Encrypt do Zimbra (por dominio + servidor)
+# HostLP - v1.2 (2026-11-17)
+#
+# - acme.sh em modo webroot, servido pelo proxy nginx do Zimbra (sem parar nada)
+# - Somente dominios ATIVOS no Zimbra (zimbraDomainStatus)
+# - Testa o DNS de cada nome em resolvedores publicos ANTES de emitir
+#   (A = IP do servidor, sem AAAA, CAA autorizando Let's Encrypt)
+# - Instala com as ferramentas oficiais: zmdomaincertmgr savecrt / deploycrts
+# - Recarga do proxy sem queda (nginx -t + HUP), com rollback automatico
+# - Renovacao automatica pelo cron do acme.sh, com os mesmos ganchos
+# - Certificado do SERVIDOR (hostname + mail.<dominio> ativos, max. 100 nomes)
+#   para IMAP/POP/SMTP/admin: aplicado com zmcertmgr + zmcontrol restart
+#   SOMENTE na janela da madrugada (03:30), com rollback automatico
+# - Dominios desativados tem o certificado removido automaticamente
+#
+# Uso:
+#   _SSL_Zimbra                       menu
+#   _SSL_Zimbra --instalar            prepara o ambiente (acme.sh, SNI, ACME no nginx)
+#   _SSL_Zimbra --simular [dominio]   mostra o que seria emitido (nao altera nada)
+#   _SSL_Zimbra --emitir <dominio>    emite/atualiza um dominio
+#   _SSL_Zimbra --emitir-todos        dominios ativos + servidor + limpeza de inativos
+#   _SSL_Zimbra --emitir-servidor     emite/atualiza so o certificado do servidor
+#   _SSL_Zimbra --aplicar-servidor    aplica o certificado do servidor pendente (RESTART do Zimbra)
+#   _SSL_Zimbra --status              validade dos certificados instalados
+#   _SSL_Zimbra --remover <dominio>   remove o certificado do dominio
+#   (internos) --deploy <dominio> | --deploy-servidor | --abrir80 | --fechar80
+#
+# Historico:
+#   v1.1 - Desafio ACME nao e redirecionado para https no modo redirect
+#          (mesma tecnica do zcsplus-letsencrypt do proprio ZCSPlus);
+#          deploycrts sem dominios com certificado nao e mais tratado como erro;
+#          aviso se o zcsplus-letsencrypt (que desativa o SNI) estiver ativo.
+#   v1.2 - Certificado do servidor no mesmo processo (IMAP/POP/SMTP/admin nao
+#          fazem SNI no Zimbra sem IP por dominio); aplicacao so na madrugada;
+#          cadeia completa ate a ISRG Root X1; limpeza de dominios desativados;
+#          cron proprio (/etc/cron.d/hostlp-ssl).
+#==============================================================================
+
+#------------------------------- CONFIGURACAO ---------------------------------
+PREFIXOS="mail webmail imap pop pop3 smtp"   # ordem importa: o 1o valido vira o nome principal
+RESOLVEDORES="1.1.1.1 8.8.8.8"
+EMAIL_ACME="thiago@hostlp.net"               # conta Let's Encrypt (avisos de expiracao)
+EMAIL_ALERTA="thiago@hostlp.net"             # alertas de falha deste script
+EXCLUIR=""                                   # dominios a ignorar, separados por espaco
+KEYLEN="2048"                                # RSA 2048: compatibilidade com clientes antigos
+ACME_HOME="/root/.acme.sh"
+ACME="$ACME_HOME/acme.sh"
+WEBROOT="/opt/zimbra/data/nginx/acme"
+BASE="/etc/hostlp-ssl"
+LOG="/var/log/hostlp-ssl.log"
+LOCK="/var/lock/hostlp-ssl.lock"
+LOCK_DEPLOY="/var/lock/hostlp-ssl-deploy.lock"
+ZTMP="/opt/zimbra/data/tmp"
+TEMPLATES="/opt/zimbra/conf/nginx/templates"
+DOMAINCERTS="/opt/zimbra/conf/domaincerts"
+BKP_TEMPLATES="/root/nginx-templates-bkp"
+SCRIPT="$(readlink -f "$0")"
+SRV_DIR="$BASE/_servidor"
+COMMERCIAL="/opt/zimbra/ssl/zimbra/commercial"
+STAGE_SRV="/opt/zimbra/ssl/hostlp-servidor"
+ROOT_X1_URL="https://letsencrypt.org/certs/isrgrootx1.pem"
+CRON_HOSTLP="/etc/cron.d/hostlp-ssl"
+MAX_NOMES=100
+#------------------------------------------------------------------------------
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+log()  { local m; m="$(date '+%F %T') $*"; echo "$m" >> "$LOG"; echo "$*"; }
+die()  { log "ERRO: $*"; exit 1; }
+zm()   { su - zimbra -c "$1" < /dev/null; }
+
+avisa() {
+    local assunto="$1" corpo="$2"
+    [ -x /opt/zimbra/common/sbin/sendmail ] || return 0
+    printf 'From: root@%s\nTo: %s\nSubject: [SSL %s] %s\n\n%s\n' \
+        "$(hostname -f)" "$EMAIL_ALERTA" "$(hostname -s)" "$assunto" "$corpo" \
+        | /opt/zimbra/common/sbin/sendmail -f "root@$(hostname -f)" "$EMAIL_ALERTA" 2>/dev/null
+}
+
+requisitos() {
+    [ "$(id -u)" -eq 0 ] || { echo "Execute como root."; exit 1; }
+    local c
+    for c in dig openssl curl iptables flock; do
+        command -v "$c" >/dev/null 2>&1 || { echo "Comando ausente: $c"; exit 1; }
+    done
+    touch "$LOG" && chmod 600 "$LOG"
+}
+
+trava() {
+    exec 8>"$LOCK"
+    flock -n 8 || { echo "Outra execucao do _SSL_Zimbra esta em andamento."; exit 1; }
+}
+
+#------------------------------- DNS ------------------------------------------
+ip_servidor() {
+    local ip r
+    for r in $RESOLVEDORES; do
+        ip=$(dig +short +time=3 +tries=2 A "$(hostname -f)" @"$r" 2>/dev/null \
+             | grep -E '^[0-9]+(\.[0-9]+){3}$' | tail -1)
+        [ -n "$ip" ] && { echo "$ip"; return 0; }
+    done
+    return 1
+}
+
+# Saida: OK | SEM_A | OUTRO_IP:<ips> | AAAA | DNS_FALHOU
+checa_nome() {
+    local n="$1" r out st ips aaaa
+    for r in $RESOLVEDORES; do
+        out=$(dig +time=3 +tries=2 A "$n" @"$r" 2>/dev/null)
+        st=$(echo "$out" | grep -oE 'status: [A-Z]+' | awk '{print $2}')
+        case "$st" in NOERROR|NXDOMAIN) ;; *) continue ;; esac   # timeout/SERVFAIL: proximo
+        ips=$(echo "$out" | awk '$3=="IN" && $4=="A"{print $5}' | sort -u)
+        if [ -z "$ips" ]; then echo "SEM_A"; return 1; fi
+        if [ "$(echo "$ips" | wc -l)" -ne 1 ] || [ "$ips" != "$IP_SRV" ]; then
+            echo "OUTRO_IP:$(echo $ips | tr ' ' ',')"; return 1
+        fi
+        out=$(dig +time=3 +tries=2 AAAA "$n" @"$r" 2>/dev/null)
+        echo "$out" | grep -qE 'status: (NOERROR|NXDOMAIN)' || { echo "DNS_FALHOU"; return 1; }
+        aaaa=$(echo "$out" | awk '$3=="IN" && $4=="AAAA"{print $5}')
+        [ -n "$aaaa" ] && { echo "AAAA"; return 1; }  # servidor sem IPv6: LE validaria pelo IPv6
+        echo "OK"; return 0
+    done
+    echo "DNS_FALHOU"; return 1
+}
+
+# Saida: OK | BLOQUEADO
+checa_caa() {
+    local d="$1" r out st issue
+    for r in $RESOLVEDORES; do
+        out=$(dig +time=3 +tries=2 CAA "$d" @"$r" 2>/dev/null)
+        st=$(echo "$out" | grep -oE 'status: [A-Z]+' | awk '{print $2}')
+        case "$st" in NOERROR|NXDOMAIN) ;; *) continue ;; esac
+        issue=$(echo "$out" | awk '$3=="IN" && $4=="CAA" && $6=="issue"')
+        [ -z "$issue" ] && { echo "OK"; return 0; }
+        echo "$issue" | grep -qi 'letsencrypt.org' && { echo "OK"; return 0; }
+        echo "BLOQUEADO"; return 1
+    done
+    echo "OK"; return 0      # sem resposta: segue (o proprio LE checa o CAA)
+}
+
+#------------------------------- ZIMBRA ---------------------------------------
+lista_dominios() {
+    local d
+    for d in $(zm "zmprov -l gad -v" | awk '
+        /^# name /             { if (d!="" && s=="active") print d; d=$3; s="active" }
+        /^zimbraDomainStatus: / { s=$2 }
+        END                    { if (d!="" && s=="active") print d }' | sort -u); do
+        case " $EXCLUIR " in *" $d "*) continue ;; esac
+        echo "$d"
+    done
+}
+
+dominio_ativo() {
+    lista_dominios | grep -qxF "$1"
+}
+
+garante_acme_nginx() {
+    # Bloco ACME nos templates do proxy (reaplica sozinho apos upgrade do Zimbra)
+    local f T alterou=0
+    mkdir -p "$BKP_TEMPLATES"
+    for f in nginx.conf.web.http.template nginx.conf.web.http.default.template \
+             nginx.conf.web.https.template nginx.conf.web.https.default.template; do
+        T="$TEMPLATES/$f"
+        [ -f "$T" ] || continue
+        grep -q HOSTLP-ACME "$T" && continue
+        cp -a "$T" "$BKP_TEMPLATES/$f.$(date +%Y%m%d_%H%M%S)"
+        sed -i '/location ~\* \/(service|principals|dav|/i\    # HOSTLP-ACME\n    location ^~ /.well-known/acme-challenge/ {\n        root /opt/zimbra/data/nginx/acme;\n        default_type text/plain;\n        try_files $uri =404;\n    }\n' "$T"
+        if grep -q HOSTLP-ACME "$T"; then
+            log "bloco ACME reaplicado em $f"; alterou=1
+        else
+            log "AVISO: nao foi possivel aplicar o bloco ACME em $f"
+        fi
+    done
+    # Modo redirect: o desafio ACME nao pode ser redirecionado para https (443 so aceita a whitelist)
+    T="$TEMPLATES/nginx.conf.web.http.mode-redirect.template"
+    if [ -f "$T" ] && ! grep -q HOSTLP-ACME "$T"; then
+        cp -a "$T" "$BKP_TEMPLATES/$(basename "$T").$(date +%Y%m%d_%H%M%S)"
+        awk '
+          !feito && index($0, "rewrite ^/(.*)$ https://$sslhost/$1 redirect;") {
+            print "            # HOSTLP-ACME: nao redireciona o desafio ACME (mesma tecnica do zcsplus-letsencrypt)"
+            print "            set $hostlp_acme 0;"
+            print "            if ($request_uri ~* \"^/\\.well-known/acme-challenge/\") { set $hostlp_acme 1; }"
+            print "            if ($hostlp_acme = 0) { rewrite ^/(.*)$ https://$sslhost/$1 redirect; }"
+            feito=1; next
+          }
+          { print }' "$T" > "$T.hostlp.tmp" && cat "$T.hostlp.tmp" > "$T"
+        rm -f "$T.hostlp.tmp"
+        if grep -q HOSTLP-ACME "$T"; then
+            log "excecao ACME aplicada no modo redirect ($(basename "$T"))"; alterou=1
+        else
+            log "AVISO: nao foi possivel aplicar a excecao ACME no modo redirect"
+        fi
+    fi
+    mkdir -p "$WEBROOT/.well-known/acme-challenge"
+    chown -R zimbra:zimbra "$WEBROOT"
+    [ "$alterou" -eq 1 ] && aplicar_proxy
+    return 0
+}
+
+teste_webroot() {
+    # Testa o servidor padrao e um nome virtual real, sem seguir redirect
+    local tok="hostlp-teste-$$" r h falhou=0
+    echo "$tok" > "$WEBROOT/.well-known/acme-challenge/$tok"
+    chown zimbra:zimbra "$WEBROOT/.well-known/acme-challenge/$tok"
+    for h in "mail.teste-hostlp.invalid" "$(hostname -f)"; do
+        r=$(curl -s --max-time 5 -H "Host: $h" "http://127.0.0.1/.well-known/acme-challenge/$tok")
+        [ "$r" = "$tok" ] || { log "teste ACME falhou para Host: $h"; falhou=1; }
+    done
+    rm -f "$WEBROOT/.well-known/acme-challenge/$tok"
+    [ "$falhou" -eq 0 ]
+}
+
+aplicar_proxy() {
+    # deploycrts + confgen + nginx -t + HUP (sem queda). Rollback do dominio rejeitado.
+    local tent=0 saida ruim pid
+    while [ "$tent" -lt 5 ]; do
+        tent=$((tent + 1))
+        saida=$(zm "/opt/zimbra/libexec/zmdomaincertmgr deploycrts" 2>&1)
+        if [ $? -ne 0 ] && ! echo "$saida" | grep -q "No domains returned"; then
+            log "ERRO: zmdomaincertmgr deploycrts falhou: $saida"; return 1
+        fi
+        echo "$saida" >> "$LOG"
+        zm "/opt/zimbra/libexec/zmproxyconfgen" >> "$LOG" 2>&1 \
+            || { log "ERRO: zmproxyconfgen falhou"; return 1; }
+        saida=$(zm "/opt/zimbra/common/sbin/nginx -t -c /opt/zimbra/conf/nginx.conf" 2>&1)
+        if echo "$saida" | grep -q "test is successful"; then
+            pid=$(cat /opt/zimbra/log/nginx.pid 2>/dev/null)
+            if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+                kill -HUP "$pid" && log "proxy recarregado (sem queda de conexoes)"
+            else
+                log "AVISO: nginx nao estava rodando - iniciando o proxy"
+                zm "zmproxyctl start" >> "$LOG" 2>&1
+            fi
+            return 0
+        fi
+        ruim=$(echo "$saida" | grep -oE 'domaincerts/[^"/ ]+\.(crt|key)' | head -1 \
+               | sed -E 's#domaincerts/##; s#\.(crt|key)$##')
+        if [ -z "$ruim" ]; then
+            log "ERRO: nginx -t falhou (proxy NAO recarregado, segue com a config anterior):"
+            log "$saida"
+            avisa "nginx -t falhou" "$saida"
+            return 1
+        fi
+        log "ERRO: certificado de $ruim rejeitado pelo nginx - removendo do Zimbra (rollback)"
+        zm "zmprov -l md $ruim zimbraSSLCertificate \"\" zimbraSSLPrivateKey \"\"" >> "$LOG" 2>&1
+        rm -f "$DOMAINCERTS/$ruim.crt" "$DOMAINCERTS/$ruim.key"
+        avisa "rollback do certificado de $ruim" "$saida"
+    done
+    return 1
+}
+
+fingerprint() { openssl x509 -noout -fingerprint -sha256 -in "$1" 2>/dev/null | cut -d= -f2; }
+
+valida_par() {
+    # $1 cert  $2 chave -> 0 se conferem e nao vencem em 24h
+    local m1 m2
+    m1=$(openssl x509 -noout -modulus -in "$1" 2>/dev/null | md5sum)
+    m2=$(openssl rsa  -noout -modulus -in "$2" 2>/dev/null | md5sum)
+    [ "$m1" = "$m2" ] || { log "certificado e chave nao conferem ($1)"; return 1; }
+    openssl x509 -checkend 86400 -noout -in "$1" >/dev/null \
+        || { log "certificado vencido ou vencendo em 24h ($1)"; return 1; }
+}
+
+monta_cadeia() {
+    # $1 ca.pem do acme.sh  $2 saida  $3 cert -> cadeia completa ate a raiz (exigida pelo zmcertmgr)
+    local ca="$1" out="$2" cert="$3" tmpd ult iss sub raiz h
+    tmpd=$(mktemp -d)
+    awk -v d="$tmpd" '/-----BEGIN CERTIFICATE-----/{n++} n{print > (d "/c" n ".pem")}' "$ca"
+    ult=$(ls "$tmpd"/c*.pem 2>/dev/null | sort -V | tail -1)
+    [ -n "$ult" ] || { rm -rf "$tmpd"; log "cadeia vazia em $ca"; return 1; }
+    sub=$(openssl x509 -noout -subject -nameopt RFC2253 -in "$ult")
+    iss=$(openssl x509 -noout -issuer  -nameopt RFC2253 -in "$ult")
+    cp "$ca" "$out"
+    if [ "${sub#subject=}" != "${iss#issuer=}" ]; then
+        h=$(openssl x509 -noout -issuer_hash -in "$ult")
+        raiz=""
+        if [ -f "/etc/ssl/certs/$h.0" ] && \
+           [ "$(openssl x509 -noout -subject -nameopt RFC2253 -in "/etc/ssl/certs/$h.0" | sed 's/^subject=//')" = "${iss#issuer=}" ]; then
+            raiz="/etc/ssl/certs/$h.0"
+        else
+            curl -fsSL "$ROOT_X1_URL" -o "$tmpd/raiz.pem" && raiz="$tmpd/raiz.pem"
+        fi
+        [ -n "$raiz" ] || { rm -rf "$tmpd"; log "raiz da cadeia nao encontrada (${iss#issuer=})"; return 1; }
+        cat "$raiz" >> "$out"
+    fi
+    rm -rf "$tmpd"
+    openssl verify -no-CApath -CAfile "$out" "$cert" >/dev/null 2>&1 \
+        || openssl verify -CAfile "$out" "$cert" >/dev/null 2>&1 \
+        || { log "cadeia montada nao valida o certificado ($cert)"; return 1; }
+    return 0
+}
+
+remover_dominio() {
+    # Sem trava e sem reload (quem chama decide)
+    local d="$1" principal
+    principal=$(cat "$BASE/$d/principal" 2>/dev/null)
+    [ -n "$principal" ] && "$ACME" --remove -d "$principal" >> "$LOG" 2>&1
+    zm "zmprov -l md $d zimbraSSLCertificate \"\" zimbraSSLPrivateKey \"\"" >> "$LOG" 2>&1
+    rm -f "$DOMAINCERTS/$d.crt" "$DOMAINCERTS/$d.key"
+    [ -d "$BASE/$d" ] && mv "$BASE/$d" "$BASE/.removido-$d-$(date +%Y%m%d%H%M%S)"
+    log "[$d] certificado removido (volta a usar o certificado do servidor)"
+}
+
+emitir_servidor() {
+    # hostname + mail.<dominio> de cada dominio ativo com DNS ok (max. MAX_NOMES nomes)
+    local hn nomes n d res args="" rc qtd=1
+    hn=$(hostname -f)
+    res=$(checa_nome "$hn")
+    [ "$res" = "OK" ] || { log "[servidor] FALHA: $hn nao aponta para $IP_SRV ($res)"; return 1; }
+    nomes="$hn"
+    for d in ${ATIVOS:-$(lista_dominios)}; do
+        if [ "$qtd" -ge "$MAX_NOMES" ]; then
+            log "[servidor] AVISO: limite de $MAX_NOMES nomes atingido a partir de mail.$d"; break
+        fi
+        [ "$(checa_caa "$d")" = "OK" ] || continue
+        n="mail.$d"; res=$(checa_nome "$n")
+        [ "$res" = "OK" ] || continue
+        nomes="$nomes $n"; qtd=$((qtd + 1))
+    done
+    for n in $nomes; do args="$args -d $n"; done
+    mkdir -p "$SRV_DIR"; chmod 700 "$BASE" "$SRV_DIR"
+
+    log "[servidor] emitindo/verificando: $hn + $((qtd - 1)) nome(s) mail."
+    # shellcheck disable=SC2086
+    "$ACME" --issue $args -w "$WEBROOT" --keylength "$KEYLEN" --server letsencrypt \
+        --preferred-chain "ISRG Root X1" \
+        --pre-hook "$SCRIPT --abrir80" --post-hook "$SCRIPT --fechar80" >> "$LOG" 2>&1
+    rc=$?
+    case "$rc" in
+        0) log "[servidor] certificado emitido" ;;
+        2) log "[servidor] nomes iguais e certificado ainda valido" ;;
+        *) log "[servidor] FALHA na emissao (codigo $rc) - detalhes em $LOG"; return 1 ;;
+    esac
+    echo "$hn"    > "$SRV_DIR/principal"
+    echo "$nomes" > "$SRV_DIR/nomes"
+    "$ACME" --install-cert -d "$hn" \
+        --cert-file      "$SRV_DIR/cert.pem" \
+        --key-file       "$SRV_DIR/key.pem" \
+        --ca-file        "$SRV_DIR/ca.pem" \
+        --fullchain-file "$SRV_DIR/fullchain.pem" \
+        --reloadcmd      "$SCRIPT --deploy-servidor" >> "$LOG" 2>&1 \
+        || { log "[servidor] FALHA ao preparar o certificado"; return 1; }
+    return 0
+}
+
+cmd_deploy_servidor() {
+    # Chamado pelo acme.sh: NAO reinicia nada, so deixa pendente para a janela da madrugada
+    exec 9>"$LOCK_DEPLOY"; flock 9
+    [ -s "$SRV_DIR/cert.pem" ] && [ -s "$SRV_DIR/key.pem" ] && [ -s "$SRV_DIR/ca.pem" ] \
+        || { log "[servidor] deploy: arquivos ausentes em $SRV_DIR"; return 1; }
+    valida_par "$SRV_DIR/cert.pem" "$SRV_DIR/key.pem" || { log "[servidor] deploy ABORTADO"; return 1; }
+    monta_cadeia "$SRV_DIR/ca.pem" "$SRV_DIR/chain-zimbra.pem" "$SRV_DIR/cert.pem" \
+        || { log "[servidor] deploy ABORTADO: cadeia"; avisa "cadeia invalida (servidor)" "Veja $LOG"; return 1; }
+    if [ "$(fingerprint "$SRV_DIR/cert.pem")" = "$(fingerprint "$COMMERCIAL/commercial.crt")" ]; then
+        rm -f "$SRV_DIR/pendente"; log "[servidor] certificado ja esta instalado no Zimbra"; return 0
+    fi
+    date '+%F %T' > "$SRV_DIR/pendente"
+    log "[servidor] certificado novo PENDENTE: sera aplicado na janela 03:30 (restart do Zimbra)"
+}
+
+servidor_no_ar() {
+    # 0 se todos os servicos rodam e o 443 entrega o certificado $1 (fingerprint)
+    local fp="$1" srv
+    zm "zmcontrol status" | grep -qiE "Stopped|not running" && return 1
+    srv=$(echo | timeout 10 openssl s_client -connect "$IP_SRV:443" -servername "$(hostname -f)" 2>/dev/null \
+          | openssl x509 -noout -fingerprint -sha256 2>/dev/null | cut -d= -f2)
+    [ "$srv" = "$fp" ]
+}
+
+cmd_aplicar_servidor() {
+    local bkp fpn fpa
+    trava
+    [ -f "$SRV_DIR/pendente" ] || { log "[servidor] nada pendente para aplicar"; return 0; }
+    exec 9>"$LOCK_DEPLOY"; flock 9
+    log "===== aplicar-servidor ====="
+    valida_par "$SRV_DIR/cert.pem" "$SRV_DIR/key.pem" || { avisa "aplicar-servidor abortado" "par invalido"; return 1; }
+    monta_cadeia "$SRV_DIR/ca.pem" "$SRV_DIR/chain-zimbra.pem" "$SRV_DIR/cert.pem" || return 1
+    fpn=$(fingerprint "$SRV_DIR/cert.pem"); fpa=$(fingerprint "$COMMERCIAL/commercial.crt")
+    [ "$fpn" = "$fpa" ] && { rm -f "$SRV_DIR/pendente"; log "[servidor] ja instalado"; return 0; }
+
+    rm -rf "$STAGE_SRV"; mkdir -p "$STAGE_SRV"
+    cp "$SRV_DIR/cert.pem" "$STAGE_SRV/cert.pem"; cp "$SRV_DIR/key.pem" "$STAGE_SRV/key.pem"
+    cp "$SRV_DIR/chain-zimbra.pem" "$STAGE_SRV/chain.pem"
+    chown -R zimbra:zimbra "$STAGE_SRV"; chmod 700 "$STAGE_SRV"; chmod 600 "$STAGE_SRV"/*.pem
+    zm "/opt/zimbra/bin/zmcertmgr verifycrt comm $STAGE_SRV/key.pem $STAGE_SRV/cert.pem $STAGE_SRV/chain.pem" >> "$LOG" 2>&1 \
+        || { log "[servidor] zmcertmgr verifycrt REPROVOU - nada foi alterado"; avisa "verifycrt reprovou" "Veja $LOG"; return 1; }
+
+    bkp="$COMMERCIAL.bkp-$(date +%Y%m%d_%H%M%S)"
+    cp -a "$COMMERCIAL" "$bkp"
+    log "[servidor] backup do certificado atual: $bkp"
+    cp "$STAGE_SRV/key.pem" "$COMMERCIAL/commercial.key"
+    chown zimbra:zimbra "$COMMERCIAL/commercial.key"; chmod 600 "$COMMERCIAL/commercial.key"
+    if ! zm "/opt/zimbra/bin/zmcertmgr deploycrt comm $STAGE_SRV/cert.pem $STAGE_SRV/chain.pem" >> "$LOG" 2>&1; then
+        log "[servidor] deploycrt FALHOU - restaurando backup"
+        cp -a "$bkp/commercial.key" "$COMMERCIAL/commercial.key"
+        zm "/opt/zimbra/bin/zmcertmgr deploycrt comm $bkp/commercial.crt $bkp/commercial_ca.crt" >> "$LOG" 2>&1
+        avisa "deploycrt falhou (backup restaurado)" "Veja $LOG"; return 1
+    fi
+
+    log "[servidor] reiniciando o Zimbra (zmcontrol restart)..."
+    zm "zmcontrol restart" >> "$LOG" 2>&1
+    sleep 20
+    zm "zmproxyctl start" >> "$LOG" 2>&1
+    if servidor_no_ar "$fpn"; then
+        rm -f "$SRV_DIR/pendente" "$STAGE_SRV"/*.pem
+        log "[servidor] certificado novo APLICADO (vence: $(openssl x509 -enddate -noout -in "$SRV_DIR/cert.pem" | cut -d= -f2))"
+        avisa "certificado do servidor renovado" "Aplicado com sucesso em $(date '+%F %T')."
+        return 0
+    fi
+
+    log "[servidor] ERRO apos o restart (servicos parados ou certificado nao servido) - ROLLBACK"
+    cp -a "$bkp/commercial.key" "$COMMERCIAL/commercial.key"
+    zm "/opt/zimbra/bin/zmcertmgr deploycrt comm $bkp/commercial.crt $bkp/commercial_ca.crt" >> "$LOG" 2>&1
+    zm "zmcontrol restart" >> "$LOG" 2>&1
+    sleep 20
+    zm "zmproxyctl start" >> "$LOG" 2>&1
+    avisa "ROLLBACK do certificado do servidor" "O certificado novo falhou apos o restart; o anterior foi restaurado. Veja $LOG"
+    return 1
+}
+
+instala_cron() {
+    cat > "$CRON_HOSTLP" <<EOF
+# HostLP _SSL_Zimbra - gerado por $SCRIPT --instalar
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# 03:30 - aplica o certificado do SERVIDOR renovado (unico momento com restart do Zimbra)
+30 3 * * * root $SCRIPT --aplicar-servidor >/dev/null 2>&1
+# Domingo 04:15 - reavalia dominios (novos, desativados, DNS corrigido); so emite o que mudou
+15 4 * * 0 root $SCRIPT --emitir-todos >/dev/null 2>&1
+EOF
+    chmod 644 "$CRON_HOSTLP"
+    log "cron proprio instalado em $CRON_HOSTLP (03:30 diario / domingo 04:15)"
+}
+
+#------------------------------- COMANDOS -------------------------------------
+cmd_abrir80() {
+    # Chamado pelo acme.sh (pre-hook) antes de validar, inclusive nas renovacoes do cron
+    garante_acme_nginx
+    iptables -C INPUT -p tcp -m tcp --dport 80 -j ACCEPT 2>/dev/null \
+        || iptables -A INPUT -p tcp -m tcp --dport 80 -j ACCEPT
+    log "porta 80 aberta para validacao ACME"
+}
+
+cmd_fechar80() {
+    while iptables -D INPUT -p tcp -m tcp --dport 80 -j ACCEPT 2>/dev/null; do :; done
+    log "porta 80 fechada"
+}
+
+cmd_instalar() {
+    trava
+    log "===== instalar ====="
+    if [ ! -x "$ACME" ]; then
+        log "instalando acme.sh (instalador oficial)..."
+        curl -fsSL https://get.acme.sh | sh -s email="$EMAIL_ACME" >> "$LOG" 2>&1 \
+            || die "instalacao do acme.sh falhou (detalhes em $LOG)"
+    fi
+    [ -x "$ACME" ] || die "acme.sh nao encontrado em $ACME"
+    "$ACME" --set-default-ca --server letsencrypt >> "$LOG" 2>&1
+    "$ACME" --register-account -m "$EMAIL_ACME" --server letsencrypt >> "$LOG" 2>&1 \
+        || die "registro da conta Let's Encrypt falhou"
+    "$ACME" --upgrade --auto-upgrade >> "$LOG" 2>&1
+    log "acme.sh: $("$ACME" --version | tail -1) | CA padrao: Let's Encrypt | auto-upgrade ligado"
+
+    if [ -e /etc/cron.daily/zcsp-letsencrypt ]; then
+        log "AVISO: /etc/cron.daily/zcsp-letsencrypt existe. O zcsplus-letsencrypt DESATIVA o SNI e"
+        log "       reinicia o Zimbra a cada renovacao. Nao use as duas ferramentas juntas."
+    fi
+
+    garante_acme_nginx
+
+    local sni
+    sni=$(zm "zmprov gs $(hostname -f) zimbraReverseProxySNIEnabled" | awk '/SNIEnabled/{print $2}')
+    if [ "$sni" != "TRUE" ]; then
+        zm "zmprov mcf zimbraReverseProxySNIEnabled TRUE" >> "$LOG" 2>&1
+        zm "zmprov ms $(hostname -f) zimbraReverseProxySNIEnabled TRUE" >> "$LOG" 2>&1
+        log "SNI ativado no proxy (zimbraReverseProxySNIEnabled TRUE)"
+        aplicar_proxy || die "falha ao aplicar o SNI no proxy"
+    else
+        log "SNI ja estava ativo"
+    fi
+
+    teste_webroot && log "teste ACME local (porta 80): OK" \
+        || die "teste ACME local falhou: o nginx nao serve /.well-known/acme-challenge/ na porta 80"
+
+    crontab -l 2>/dev/null | grep -q "acme.sh --cron" \
+        && log "renovacao automatica: cron do acme.sh presente" \
+        || log "AVISO: cron do acme.sh nao encontrado no crontab do root"
+    instala_cron
+    log "instalacao concluida. Proximo passo: $SCRIPT --simular"
+}
+
+cmd_simular() {
+    local alvo="$1" d p n res ok exc caa tot=0 emit=0
+    printf "\nServidor: %s (%s)\n\n" "$(hostname -f)" "$IP_SRV"
+    printf "%-34s %-38s %s\n" "DOMINIO" "ENTRARIAM NO CERTIFICADO" "EXCLUIDOS (motivo)"
+    printf "%-34s %-38s %s\n" "-------" "------------------------" "------------------"
+    for d in ${alvo:-$(lista_dominios)}; do
+        tot=$((tot + 1)); ok=""; exc=""
+        caa=$(checa_caa "$d")
+        if [ "$caa" != "OK" ]; then
+            printf "%-34s %-38s %s\n" "$d" "-" "CAA nao autoriza Let's Encrypt"; continue
+        fi
+        for p in $PREFIXOS; do
+            n="$p.$d"; res=$(checa_nome "$n")
+            if [ "$res" = "OK" ]; then ok="$ok $p"; else exc="$exc $p($res)"; fi
+        done
+        [ -n "$ok" ] && emit=$((emit + 1))
+        printf "%-34s %-38s %s\n" "$d" "${ok:- -}" "${exc:- -}"
+    done
+    printf "\nTotal: %d dominio(s) | com certificado possivel: %d | sem nenhum nome valido: %d\n\n" \
+        "$tot" "$emit" "$((tot - emit))"
+}
+
+emitir_dominio() {
+    # Retorno: 0 = ok (emitido ou ja valido) | 1 = falha | 3 = pulado (DNS/CAA)
+    local d="$1" nomes="" n p res principal args="" rc caa ant
+    caa=$(checa_caa "$d")
+    [ "$caa" = "OK" ] || { log "[$d] PULADO: CAA nao autoriza Let's Encrypt"; return 3; }
+    for p in $PREFIXOS; do
+        n="$p.$d"; res=$(checa_nome "$n")
+        if [ "$res" = "OK" ]; then nomes="$nomes $n"; else log "[$d] $n excluido ($res)"; fi
+    done
+    nomes=$(echo $nomes)
+    [ -z "$nomes" ] && { log "[$d] PULADO: nenhum nome aponta para $IP_SRV"; return 3; }
+    principal=${nomes%% *}
+    for n in $nomes; do args="$args -d $n"; done
+
+    mkdir -p "$BASE/$d"; chmod 700 "$BASE" "$BASE/$d"
+    ant=$(cat "$BASE/$d/principal" 2>/dev/null)
+    if [ -n "$ant" ] && [ "$ant" != "$principal" ]; then
+        log "[$d] nome principal mudou ($ant -> $principal): removendo registro antigo do acme.sh"
+        "$ACME" --remove -d "$ant" >> "$LOG" 2>&1
+    fi
+
+    log "[$d] emitindo/verificando: $nomes"
+    # shellcheck disable=SC2086
+    "$ACME" --issue $args -w "$WEBROOT" --keylength "$KEYLEN" --server letsencrypt \
+        --pre-hook "$SCRIPT --abrir80" --post-hook "$SCRIPT --fechar80" >> "$LOG" 2>&1
+    rc=$?
+    case "$rc" in
+        0) log "[$d] certificado emitido" ;;
+        2) log "[$d] nomes iguais e certificado ainda valido (renovacao automatica no prazo)" ;;
+        *) log "[$d] FALHA na emissao (codigo $rc) - detalhes em $LOG"; return 1 ;;
+    esac
+    echo "$principal" > "$BASE/$d/principal"
+    echo "$nomes"     > "$BASE/$d/nomes"
+
+    "$ACME" --install-cert -d "$principal" \
+        --cert-file      "$BASE/$d/cert.pem" \
+        --key-file       "$BASE/$d/key.pem" \
+        --ca-file        "$BASE/$d/ca.pem" \
+        --fullchain-file "$BASE/$d/fullchain.pem" \
+        --reloadcmd      "$SCRIPT --deploy $d" >> "$LOG" 2>&1 \
+        || { log "[$d] FALHA ao instalar o certificado no Zimbra"; return 1; }
+    return 0
+}
+
+cmd_deploy() {
+    # Chamado pelo acme.sh (reloadcmd) na emissao e em cada renovacao
+    local d="$1" dir="$BASE/$1" tmpd vhs n rc
+    exec 9>"$LOCK_DEPLOY"; flock 9
+    [ -s "$dir/fullchain.pem" ] && [ -s "$dir/key.pem" ] && [ -s "$dir/cert.pem" ] \
+        || { log "[$d] deploy: arquivos ausentes em $dir"; return 1; }
+    valida_par "$dir/cert.pem" "$dir/key.pem" || { log "[$d] deploy ABORTADO"; return 1; }
+
+    # Nomes virtuais do dominio (padrao Zimbra): o SNI do proxy escolhe o certificado por eles
+    vhs=$(zm "zmprov -l gd $d zimbraVirtualHostname" | awk '/^zimbraVirtualHostname:/{print $2}')
+    for n in $(cat "$dir/nomes"); do
+        echo "$vhs" | grep -qxF "$n" && continue
+        zm "zmprov -l md $d +zimbraVirtualHostname $n" >> "$LOG" 2>&1 \
+            && log "[$d] nome virtual adicionado: $n"
+    done
+
+    mkdir -p "$ZTMP"; chown zimbra:zimbra "$ZTMP"
+    tmpd=$(mktemp -d "$ZTMP/ssl.XXXXXX")
+    cp "$dir/fullchain.pem" "$tmpd/crt"; cp "$dir/key.pem" "$tmpd/key"
+    chown -R zimbra:zimbra "$tmpd"; chmod 700 "$tmpd"; chmod 600 "$tmpd/crt" "$tmpd/key"
+    zm "/opt/zimbra/libexec/zmdomaincertmgr savecrt $d $tmpd/crt $tmpd/key" >> "$LOG" 2>&1
+    rc=$?
+    rm -rf "$tmpd"
+    [ "$rc" -eq 0 ] || { log "[$d] deploy: zmdomaincertmgr savecrt falhou"; avisa "deploy falhou: $d" "savecrt retornou $rc"; return 1; }
+    log "[$d] certificado gravado no Zimbra (vence: $(openssl x509 -enddate -noout -in "$dir/cert.pem" | cut -d= -f2))"
+
+    [ "$HOSTLP_SSL_LOTE" = "1" ] && return 0      # em lote: um unico reload no final
+    aplicar_proxy
+}
+
+cmd_emitir() {
+    local d="$1" rc
+    [ -n "$d" ] || die "informe o dominio: --emitir <dominio>"
+    trava
+    dominio_ativo "$d" || die "$d nao e um dominio ATIVO neste Zimbra"
+    [ -x "$ACME" ] || die "acme.sh nao instalado. Rode: $SCRIPT --instalar"
+    trap cmd_fechar80 EXIT
+    garante_acme_nginx
+    teste_webroot || die "teste ACME local falhou (porta 80 nao serve o desafio)"
+    emitir_dominio "$d"; rc=$?
+    [ "$rc" -eq 1 ] && avisa "falha ao emitir $d" "Veja $LOG em $(hostname -f)"
+    return "$rc"
+}
+
+cmd_emitir_todos() {
+    local d ok=0 pul=0 fal=0 lfal=""
+    trava
+    [ -x "$ACME" ] || die "acme.sh nao instalado. Rode: $SCRIPT --instalar"
+    trap cmd_fechar80 EXIT
+    garante_acme_nginx
+    teste_webroot || die "teste ACME local falhou (porta 80 nao serve o desafio)"
+    log "===== emitir-todos ====="
+    ATIVOS=$(lista_dominios)
+    [ -n "$ATIVOS" ] || die "nenhum dominio ativo retornado pelo Zimbra (LDAP fora?) - abortado"
+    export HOSTLP_SSL_LOTE=1
+    for d in $ATIVOS; do
+        emitir_dominio "$d"
+        case $? in
+            0) ok=$((ok + 1)) ;;
+            3) pul=$((pul + 1)) ;;
+            *) fal=$((fal + 1)); lfal="$lfal $d" ;;
+        esac
+        sleep 2
+    done
+    unset HOSTLP_SSL_LOTE
+    # Dominios desativados/removidos do Zimbra: descarta o certificado
+    local dir rem=0
+    for dir in "$BASE"/*/; do
+        d=$(basename "$dir")
+        [ "$d" = "_servidor" ] && continue
+        echo "$ATIVOS" | grep -qxF "$d" && continue
+        remover_dominio "$d"; rem=$((rem + 1))
+    done
+    aplicar_proxy
+    emitir_servidor || { fal=$((fal + 1)); lfal="$lfal [servidor]"; }
+    log "RESUMO: ok=$ok | pulados (DNS/CAA)=$pul | removidos (inativos)=$rem | falhas=$fal${lfal:+ ->$lfal}"
+    [ "$fal" -gt 0 ] && avisa "falhas na emissao em lote" "Itens:$lfal - veja $LOG"
+    return 0
+}
+
+cmd_emitir_servidor() {
+    trava
+    [ -x "$ACME" ] || die "acme.sh nao instalado. Rode: $SCRIPT --instalar"
+    trap cmd_fechar80 EXIT
+    garante_acme_nginx
+    teste_webroot || die "teste ACME local falhou (porta 80 nao serve o desafio)"
+    emitir_servidor || { avisa "falha ao emitir o certificado do servidor" "Veja $LOG"; return 1; }
+}
+
+cmd_status() {
+    local dir d fim dias inst
+    printf "\n%-34s %-26s %-5s %-6s %s\n" "DOMINIO" "VENCE" "DIAS" "ATIVO" "NOMES"
+    for dir in "$BASE"/*/; do
+        d=$(basename "$dir")
+        [ -f "$dir/cert.pem" ] || continue
+        [ "$d" = "_servidor" ] && continue
+        fim=$(openssl x509 -enddate -noout -in "$dir/cert.pem" | cut -d= -f2)
+        dias=$(( ($(date -d "$fim" +%s) - $(date +%s)) / 86400 ))
+        inst="nao"
+        if [ -f "$DOMAINCERTS/$d.crt" ] && [ "$(openssl x509 -noout -fingerprint -in "$dir/cert.pem")" \
+             = "$(openssl x509 -noout -fingerprint -in "$DOMAINCERTS/$d.crt" 2>/dev/null)" ]; then
+            inst="sim"
+        fi
+        printf "%-34s %-26s %-5s %-6s %s\n" "$d" "$fim" "$dias" "$inst" "$(cat "$dir/nomes" 2>/dev/null)"
+    done
+    echo
+    echo "SERVIDOR (IMAP/POP/SMTP/admin):"
+    fim=$(openssl x509 -enddate -noout -in "$COMMERCIAL/commercial.crt" 2>/dev/null | cut -d= -f2)
+    printf "  instalado: vence %s (%s dias) | %s nomes\n" "$fim" \
+        "$(( ($(date -d "$fim" +%s) - $(date +%s)) / 86400 ))" \
+        "$(openssl x509 -noout -ext subjectAltName -in "$COMMERCIAL/commercial.crt" 2>/dev/null | grep -o 'DNS:' | wc -l)"
+    if [ -f "$SRV_DIR/cert.pem" ]; then
+        fim=$(openssl x509 -enddate -noout -in "$SRV_DIR/cert.pem" | cut -d= -f2)
+        printf "  acme.sh  : vence %s | %s nomes | %s\n" "$fim" "$(wc -w < "$SRV_DIR/nomes")" \
+            "$([ -f "$SRV_DIR/pendente" ] && echo "PENDENTE desde $(cat "$SRV_DIR/pendente") - aplica as 03:30" || echo "aplicado")"
+    else
+        echo "  acme.sh  : ainda nao emitido (rode --emitir-servidor ou --emitir-todos)"
+    fi
+    echo
+}
+
+cmd_remover() {
+    local d="$1"
+    [ -n "$d" ] || die "informe o dominio: --remover <dominio>"
+    trava
+    remover_dominio "$d"
+    aplicar_proxy
+}
+
+menu() {
+    local op dom
+    echo
+    echo "========== _SSL_Zimbra - $(hostname -f) =========="
+    echo " 1) Instalar / verificar ambiente"
+    echo " 2) Simular (todos os dominios)"
+    echo " 3) Emitir um dominio"
+    echo " 4) Emitir todos os dominios ativos"
+    echo " 5) Status dos certificados"
+    echo " 6) Remover certificado de um dominio"
+    echo " 7) Emitir certificado do servidor"
+    echo " 8) Aplicar certificado do servidor AGORA (reinicia o Zimbra)"
+    echo " 0) Sair"
+    read -rp "Opcao: " op
+    case "$op" in
+        1) cmd_instalar ;;
+        2) cmd_simular ;;
+        3) read -rp "Dominio: " dom; cmd_emitir "$dom" ;;
+        4) cmd_emitir_todos ;;
+        5) cmd_status ;;
+        6) read -rp "Dominio: " dom; cmd_remover "$dom" ;;
+        7) cmd_emitir_servidor ;;
+        8) cmd_aplicar_servidor ;;
+        *) exit 0 ;;
+    esac
+}
+
+#------------------------------- MAIN -----------------------------------------
+requisitos
+case "$1" in
+    --abrir80)  cmd_abrir80;  exit 0 ;;
+    --fechar80) cmd_fechar80; exit 0 ;;
+    --status)   cmd_status;   exit 0 ;;
+esac
+
+IP_SRV=$(ip_servidor) || die "nao foi possivel descobrir o IP publico de $(hostname -f) via DNS"
+
+case "$1" in
+    --instalar)     cmd_instalar ;;
+    --simular)      cmd_simular "$2" ;;
+    --emitir)       cmd_emitir "$2" ;;
+    --emitir-todos) cmd_emitir_todos ;;
+    --deploy)       cmd_deploy "$2" ;;
+    --emitir-servidor)  cmd_emitir_servidor ;;
+    --deploy-servidor)  cmd_deploy_servidor ;;
+    --aplicar-servidor) cmd_aplicar_servidor ;;
+    --remover)      cmd_remover "$2" ;;
+    "")             menu ;;
+    *)              sed -n '2,30p' "$SCRIPT"; exit 1 ;;
+esac
