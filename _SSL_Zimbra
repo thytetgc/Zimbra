@@ -1,7 +1,7 @@
 #!/bin/bash
 #==============================================================================
 # _SSL_Zimbra - Certificados Let's Encrypt do Zimbra (por dominio + servidor)
-# HostLP - v1.4 (2026-11-18)
+# HostLP - v1.5 (2026-11-18)
 #
 # - acme.sh em modo webroot, servido pelo proxy nginx do Zimbra (sem parar nada)
 # - Somente dominios ATIVOS no Zimbra (zimbraDomainStatus)
@@ -10,7 +10,8 @@
 # - Instala com as ferramentas oficiais: zmdomaincertmgr savecrt / deploycrts
 # - Recarga do proxy sem queda (nginx -t + HUP), com rollback automatico
 # - Renovacao automatica pelo cron do acme.sh, com os mesmos ganchos
-# - Certificado do SERVIDOR (hostname + mail.<dominio> ativos, max. 100 nomes)
+# - Certificado do SERVIDOR (hostname + nomes dos dominios ativos, max. 100 nomes):
+#   se todos os prefixos validos couberem, entram todos; senao, so mail.<dominio>
 #   para IMAP/POP/SMTP/admin: aplicado com zmcertmgr + zmcontrol restart
 #   SOMENTE na janela da madrugada (03:30), com rollback automatico
 # - Dominios desativados tem o certificado removido automaticamente
@@ -48,6 +49,11 @@
 #            5 min pelos servicos antes de qualquer rollback;
 #          * conferencia do servidor pelas portas 993 e 7071 (sem SNI);
 #          * remover dominio nao refaz o deploycrts de todos.
+#   v1.5 - Certificado do servidor com TODOS os prefixos validos (mail, webmail,
+#          imap, pop, pop3, smtp) quando o total cabe em 100 nomes (servidor
+#          dedicado: clientes configurados com imap./pop./smtp. nas portas
+#          993/995/465/587 continuam sem alerta). Acima de 100: so mail.<dominio>.
+#          --simular mostra tambem os nomes do certificado do servidor.
 #==============================================================================
 
 #------------------------------- CONFIGURACAO ---------------------------------
@@ -326,26 +332,42 @@ remover_dominio() {
     log "[$d] certificado removido (volta a usar o certificado do servidor)"
 }
 
+nomes_servidor() {
+    # Linha 1: modo (todos|mail) | Linha 2: nomes, hostname primeiro (max. MAX_NOMES)
+    local hn d p n todos="" mails="" lista modo nomes qtd=1
+    hn=$(hostname -f)
+    for d in ${ATIVOS:-$(lista_dominios)}; do
+        [ "$(checa_caa "$d")" = "OK" ] || continue
+        for p in $PREFIXOS; do
+            n="$p.$d"; [ "$n" = "$hn" ] && continue
+            [ "$(checa_nome "$n")" = "OK" ] || continue
+            todos="$todos $n"; [ "$p" = "mail" ] && mails="$mails $n"
+        done
+    done
+    if [ $(( $(echo $todos | wc -w) + 1 )) -le "$MAX_NOMES" ]; then lista=$todos; modo="todos"
+    else lista=$mails; modo="mail"; fi
+    nomes="$hn"
+    for n in $lista; do
+        [ "$qtd" -ge "$MAX_NOMES" ] && break
+        nomes="$nomes $n"; qtd=$((qtd + 1))
+    done
+    echo "$modo"; echo "$nomes"
+}
+
 emitir_servidor() {
-    # hostname + mail.<dominio> de cada dominio ativo com DNS ok (max. MAX_NOMES nomes)
-    local hn nomes n d res args="" rc qtd=1
+    # hostname + nomes dos dominios ativos com DNS ok (ver nomes_servidor)
+    local hn nomes n res args="" rc saida modo qtd
     hn=$(hostname -f)
     res=$(checa_nome "$hn")
     [ "$res" = "OK" ] || { log "[servidor] FALHA: $hn nao aponta para $IP_SRV ($res)"; return 1; }
-    nomes="$hn"
-    for d in ${ATIVOS:-$(lista_dominios)}; do
-        if [ "$qtd" -ge "$MAX_NOMES" ]; then
-            log "[servidor] AVISO: limite de $MAX_NOMES nomes atingido a partir de mail.$d"; break
-        fi
-        [ "$(checa_caa "$d")" = "OK" ] || continue
-        n="mail.$d"; res=$(checa_nome "$n")
-        [ "$res" = "OK" ] || continue
-        nomes="$nomes $n"; qtd=$((qtd + 1))
-    done
+    saida=$(nomes_servidor); modo=$(echo "$saida" | sed -n 1p); nomes=$(echo "$saida" | sed -n 2p)
+    qtd=$(echo $nomes | wc -w)
+    [ "$modo" = "mail" ] && log "[servidor] mais de $MAX_NOMES nomes validos: entram somente mail.<dominio>"
+    [ "$qtd" -ge "$MAX_NOMES" ] && log "[servidor] AVISO: limite de $MAX_NOMES nomes atingido"
     for n in $nomes; do args="$args -d $n"; done
     mkdir -p "$SRV_DIR"; chmod 700 "$BASE" "$SRV_DIR"
 
-    log "[servidor] emitindo/verificando: $hn + $((qtd - 1)) nome(s) mail."
+    log "[servidor] emitindo/verificando: $qtd nome(s) ($([ "$modo" = "todos" ] && echo "todos os prefixos" || echo "somente mail."))"
     # shellcheck disable=SC2086
     "$ACME" --issue $args -w "$WEBROOT" --keylength "$KEYLEN" --server letsencrypt \
         --preferred-chain "ISRG Root X1" \
@@ -564,6 +586,10 @@ cmd_simular() {
     done
     printf "\nTotal: %d dominio(s) | com certificado possivel: %d | sem nenhum nome valido: %d\n\n" \
         "$tot" "$emit" "$((tot - emit))"
+    local srv; srv=$(nomes_servidor)
+    printf "Certificado do SERVIDOR (993/995/465/587/7071) - %s:\n  %s\n\n" \
+        "$([ "$(echo "$srv" | sed -n 1p)" = "todos" ] && echo "todos os prefixos" || echo "somente mail. (mais de $MAX_NOMES nomes)")" \
+        "$(echo "$srv" | sed -n 2p)"
 }
 
 emitir_dominio() {
