@@ -1,14 +1,14 @@
 #!/bin/bash
 #==============================================================================
 # _SSL_Zimbra - Certificados Let's Encrypt do Zimbra (por dominio + servidor)
-# HostLP - v1.6 (2026-11-18)
+# HostLP - v1.7 (2026-11-23)
 #
 # - acme.sh em modo webroot, servido pelo proxy nginx do Zimbra (sem parar nada)
 # - Somente dominios ATIVOS no Zimbra (zimbraDomainStatus)
 # - Testa o DNS de cada nome em resolvedores publicos ANTES de emitir
 #   (A = IP do servidor, sem AAAA, CAA autorizando Let's Encrypt)
 # - Instala com as ferramentas oficiais: zmdomaincertmgr savecrt / deploycrts
-# - Recarga do proxy sem queda (nginx -t + HUP), com rollback automatico
+# - Recarga do proxy sem queda (nginx -t + zmproxyctl reload), com rollback automatico
 # - Renovacao automatica pelo cron do acme.sh, com os mesmos ganchos
 # - Certificado do SERVIDOR (hostname + nomes dos dominios ativos, max. 100 nomes):
 #   se todos os prefixos validos couberem, entram todos; senao, so mail.<dominio>
@@ -58,6 +58,16 @@
 #          NAO emite certificado de dominio e remove os existentes. O nginx de
 #          e-mail (993/995) nao escolhe certificado por SNI e entregava o do
 #          dominio (sem o hostname), o que fazia a conferencia das 03:30 falhar.
+#   v1.7 - Correcoes do incidente de 23/11 (cloudmail: 993/995 com pop.hostlp.cloud):
+#          * o DOMINIO DO SERVIDOR (hostname sem o 1o rotulo, ex.: hostlp.cloud) nunca
+#            recebe certificado de dominio: fica sempre com o certificado do servidor
+#            (no nginx de e-mail o bloco dele era o padrao das portas 993/995);
+#            certificado de dominio que ele ja tenha e removido no --emitir-todos;
+#          * o certificado do servidor SEMPRE inclui todos os prefixos validos do
+#            dominio do servidor (mail/webmail/imap/pop/pop3/smtp), tambem no modo
+#            "somente mail." (servidor compartilhado com muitos dominios);
+#          * recarga do proxy com zmproxyctl reload (o HUP direto no nginx.pid nao
+#            aplicava o certificado no nginx de e-mail) e conferencia da porta 993.
 #          Com um so certificado (o do servidor) todas as portas ficam iguais.
 #==============================================================================
 
@@ -183,6 +193,12 @@ dominios_do_hostname() {
         /^zimbraVirtualHostname: / { if ($2==h) print d }' | sort -u
 }
 
+dominio_do_servidor() {
+    # Dominio do proprio servidor (hostname sem o 1o rotulo), se for dominio ativo no Zimbra
+    local d; d=$(hostname -f | cut -d. -f2-)
+    [ -n "$d" ] && lista_dominios | grep -qxF "$d" && echo "$d"
+}
+
 dominio_ativo() {
     lista_dominios | grep -qxF "$1"
 }
@@ -262,11 +278,17 @@ aplicar_proxy() {
         if echo "$saida" | grep -q "test is successful"; then
             pid=$(cat /opt/zimbra/log/nginx.pid 2>/dev/null)
             if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-                kill -HUP "$pid" && log "proxy recarregado (sem queda de conexoes)"
+                if zm "zmproxyctl reload" >> "$LOG" 2>&1; then
+                    log "proxy recarregado com zmproxyctl reload (sem queda de conexoes)"
+                else
+                    log "ERRO: zmproxyctl reload falhou"; avisa "zmproxyctl reload falhou" "Veja $LOG"; return 1
+                fi
             else
                 log "AVISO: nginx nao estava rodando - iniciando o proxy"
                 zm "zmproxyctl start" >> "$LOG" 2>&1
             fi
+            sleep 3
+            confere_993
             return 0
         fi
         ruim=$(echo "$saida" | grep -oE 'domaincerts/[^"/ ]+\.(crt|key)' | head -1 \
@@ -286,6 +308,19 @@ aplicar_proxy() {
 }
 
 fingerprint() { openssl x509 -noout -fingerprint -sha256 -in "$1" 2>/dev/null | cut -d= -f2; }
+
+confere_993() {
+    # A porta 993 (sem SNI) deve entregar o certificado do servidor (nginx.crt)
+    local f993 fsrv
+    f993=$(echo | timeout 8 openssl s_client -connect 127.0.0.1:993 2>/dev/null | openssl x509 -noout -fingerprint -sha256 2>/dev/null | cut -d= -f2)
+    fsrv=$(fingerprint /opt/zimbra/conf/nginx.crt)
+    if [ -n "$f993" ] && [ "$f993" = "$fsrv" ]; then
+        log "conferencia: porta 993 entrega o certificado do servidor"
+    else
+        log "AVISO: porta 993 NAO entrega o certificado do servidor (993=$f993 servidor=$fsrv)"
+        avisa "993 sem o certificado do servidor" "Veja $LOG em $(hostname -f)"
+    fi
+}
 
 valida_par() {
     # $1 cert  $2 chave -> 0 se conferem e nao vencem em 24h
@@ -339,18 +374,20 @@ remover_dominio() {
 
 nomes_servidor() {
     # Linha 1: modo (todos|mail) | Linha 2: nomes, hostname primeiro (max. MAX_NOMES)
-    local hn d p n todos="" mails="" lista modo nomes qtd=1
-    hn=$(hostname -f)
+    # O dominio do proprio servidor entra SEMPRE com todos os prefixos validos (logo apos o hostname)
+    local hn d p n todos="" mails="" proprios="" lista modo nomes qtd=1 dsrv
+    hn=$(hostname -f); dsrv=$(hostname -f | cut -d. -f2-)
     for d in ${ATIVOS:-$(lista_dominios)}; do
         [ "$(checa_caa "$d")" = "OK" ] || continue
         for p in $PREFIXOS; do
             n="$p.$d"; [ "$n" = "$hn" ] && continue
             [ "$(checa_nome "$n")" = "OK" ] || continue
+            if [ "$d" = "$dsrv" ]; then proprios="$proprios $n"; continue; fi
             todos="$todos $n"; [ "$p" = "mail" ] && mails="$mails $n"
         done
     done
-    if [ $(( $(echo $todos | wc -w) + 1 )) -le "$MAX_NOMES" ]; then lista=$todos; modo="todos"
-    else lista=$mails; modo="mail"; fi
+    if [ $(( $(echo $proprios $todos | wc -w) + 1 )) -le "$MAX_NOMES" ]; then lista="$proprios $todos"; modo="todos"
+    else lista="$proprios $mails"; modo="mail"; fi
     nomes="$hn"
     for n in $lista; do
         [ "$qtd" -ge "$MAX_NOMES" ] && break
@@ -576,7 +613,7 @@ cmd_simular() {
     for d in ${alvo:-$(lista_dominios)}; do
         tot=$((tot + 1)); ok=""; exc=""
         if echo "$DOMS_HOSTNAME" | grep -qxF "$d"; then
-            printf "%-34s %-38s %s\n" "$d" "-" "contem o hostname (usa o certificado do servidor)"; continue
+            printf "%-34s %-38s %s\n" "$d" "-" "dominio do servidor ou contem o hostname (usa o certificado do servidor)"; continue
         fi
         caa=$(checa_caa "$d")
         if [ "$caa" != "OK" ]; then
@@ -593,7 +630,7 @@ cmd_simular() {
         "$tot" "$emit" "$((tot - emit))"
     local srv; srv=$(nomes_servidor)
     printf "Certificado do SERVIDOR (993/995/465/587/7071) - %s:\n  %s\n\n" \
-        "$([ "$(echo "$srv" | sed -n 1p)" = "todos" ] && echo "todos os prefixos" || echo "somente mail. (mais de $MAX_NOMES nomes)")" \
+        "$([ "$(echo "$srv" | sed -n 1p)" = "todos" ] && echo "todos os prefixos" || echo "dominio do servidor completo + somente mail. dos demais (mais de $MAX_NOMES nomes)")" \
         "$(echo "$srv" | sed -n 2p)"
     [ "$(echo "$srv" | sed -n 1p)" = "todos" ] && \
         printf "Servidor DEDICADO: certificados de dominio NAO serao emitidos (o do servidor cobre todos os nomes).\n\n"
@@ -603,7 +640,7 @@ emitir_dominio() {
     # Retorno: 0 = ok (emitido ou ja valido) | 1 = falha | 3 = pulado (DNS/CAA)
     local d="$1" nomes="" n p res principal args="" rc caa ant
     if echo "$DOMS_HOSTNAME" | grep -qxF "$d"; then
-        log "[$d] PULADO: tem o hostname $(hostname -f) como nome virtual (fica com o certificado do servidor)"
+        log "[$d] PULADO: dominio do servidor ou com o hostname $(hostname -f) como nome virtual (fica com o certificado do servidor)"
         return 3
     fi
     caa=$(checa_caa "$d")
@@ -835,7 +872,7 @@ case "$1" in
 esac
 
 IP_SRV=$(ip_servidor) || die "nao foi possivel descobrir o IP publico de $(hostname -f) via DNS"
-case "$1" in --simular|--emitir|--emitir-todos|"") DOMS_HOSTNAME=$(dominios_do_hostname) ;; esac
+case "$1" in --simular|--emitir|--emitir-todos|"") DOMS_HOSTNAME=$( { dominios_do_hostname; dominio_do_servidor; } | sort -u) ;; esac
 
 case "$1" in
     --instalar)     cmd_instalar ;;
